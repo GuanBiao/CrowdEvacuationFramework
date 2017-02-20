@@ -1,7 +1,7 @@
 #ifndef __DRAWINGUTILITY_H__
 #define __DRAWINGUTILITY_H__
 
-#include "GL/glut.h"
+#include "GL/freeglut.h"
 #include "boost/math/constants/constants.hpp"
 
 static void drawCircle(float x, float y, float r, int numSlices) {

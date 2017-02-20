@@ -15,13 +15,20 @@ public:
 
 	CellularAutomatonModel();
 	void update();
+	void editAgents( array2f worldCoord );
+	void editExits( array2f worldCoord );
+	void editObstacles( array2f worldCoord );
+	void refreshTimer();
+	void save();
 	void draw();
 
 private:
 	bool **mIsOccupied; // use [y-coordinate][x-coordinate] to access elements
 	int mNumTimesteps;
-	int mNumAgentsHavingLeft;
 	boost::random::mt19937 mRNG;
+
+	void setCellOccupancyState();
+	int countAgentsHavingLeft();
 };
 
 #endif
