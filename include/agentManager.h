@@ -7,6 +7,7 @@
 #include <ctime>
 #include "GL/freeglut.h"
 #include "boost/container/vector.hpp"
+#include "boost/optional.hpp"
 
 #include "container.h"
 #include "drawingUtility.h"
@@ -16,20 +17,15 @@ using std::endl;
 
 class AgentManager {
 public:
-	float mAgentSize;
-	int mNumAgents;
 	boost::container::vector<array2i> mAgents;
-	boost::container::vector<bool> mIsVisible;
+	float mAgentSize;
 	float mPanicProb;
 
 	void read( const char *fileName );
-	int isExisting( array2i coord, bool isVisibilityConsidered = true );
+	boost::optional<int> isExisting( array2i coord );
 	void edit( array2i coord );
 	void save();
 	void draw();
-
-private:
-	int countActiveAgents();
 };
 
 #endif

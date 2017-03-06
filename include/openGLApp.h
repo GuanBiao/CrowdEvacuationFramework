@@ -10,7 +10,8 @@
 
 class OpenGLApp {
 public:
-	float mSimulationSpeed;
+	int mFlgEnableColormap;
+	float mExecutionSpeed;
 
 	OpenGLApp();
 	void initOpenGL( int argc, char *argv[] );
@@ -25,11 +26,11 @@ public:
 
 private:
 	static OpenGLApp *mOpenGLApp;
-	bool mToRunApp;
-	bool mToEditAgents;
-	bool mToEditExits;
-	bool mToEditObstacles;
-	bool mToDragCamera;
+	bool mFlgRunApp;
+	bool mFlgEditAgents;
+	bool mFlgEditExits;
+	bool mFlgEditObstacles;
+	bool mFlgDragCamera;
 	int mMainWindowId;
 
 	CellularAutomatonModel mCAModel;

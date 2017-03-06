@@ -8,6 +8,11 @@
 #include "floorField.h"
 #include "agentManager.h"
 
+/*
+ * TYPE_EMPTY, TYPE_EXIT and TYPE_OBSTACLE are defined in floorField.h.
+ */
+#define TYPE_AGENT -4
+
 class CellularAutomatonModel {
 public:
 	FloorField mFloorField;
@@ -23,12 +28,11 @@ public:
 	void draw();
 
 private:
-	bool **mIsOccupied; // use [y-coordinate][x-coordinate] to access elements
+	int **mCellStates; // use [y-coordinate][x-coordinate] to access elements
 	int mNumTimesteps;
 	boost::random::mt19937 mRNG;
 
-	void setCellOccupancyState();
-	int countAgentsHavingLeft();
+	void setCellStates();
 };
 
 #endif

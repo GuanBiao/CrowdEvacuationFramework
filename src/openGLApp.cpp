@@ -3,21 +3,22 @@
 OpenGLApp *OpenGLApp::mOpenGLApp = 0;
 
 OpenGLApp::OpenGLApp() {
-	mSimulationSpeed = 1.0;
+	mFlgEnableColormap = false;
+	mExecutionSpeed = 1.0;
 
 	mOpenGLApp = this;
-	mToRunApp = false;
-	mToEditAgents = false;
-	mToEditExits = false;
-	mToEditObstacles = false;
-	mToDragCamera = false;
+	mFlgRunApp = false;
+	mFlgEditAgents = false;
+	mFlgEditExits = false;
+	mFlgEditObstacles = false;
+	mFlgDragCamera = false;
 }
 
 void OpenGLApp::initOpenGL(int argc, char *argv[]) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
 	glutInitWindowSize(mOpenGLApp->mCamera.mWindowWidth, mOpenGLApp->mCamera.mWindowHeight);
-	mMainWindowId = glutCreateWindow("Crowd Evacuation by Guan-Wen Lin");
+	mMainWindowId = glutCreateWindow("Crowd Evacuation Framework by Guan-Wen Lin");
 
 	glutDisplayFunc(displayCallback);
 	GLUI_Master.set_glutIdleFunc(idleCallback);
@@ -40,9 +41,9 @@ void OpenGLApp::display() {
 	glClearColor(1.0, 1.0, 1.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (mOpenGLApp->mToRunApp) {
+	if (mOpenGLApp->mFlgRunApp) {
 		mOpenGLApp->mCAModel.update();
-		Sleep((1.0 - mOpenGLApp->mSimulationSpeed) * 1000.0); // control simulation speed
+		Sleep((1 - mOpenGLApp->mExecutionSpeed) * 1000); // control execution speed
 	}
 
 	mOpenGLApp->mCAModel.draw();
@@ -63,19 +64,19 @@ void OpenGLApp::mouse(int button, int state, int x, int y) {
 	switch (button) {
 	case GLUT_LEFT_BUTTON:
 		if (state == GLUT_DOWN) {
-			if (mOpenGLApp->mToEditAgents)
-				mOpenGLApp->mCAModel.editAgents(mOpenGLApp->mCamera.getWorldCoordinate(x, y));
-			else if (mOpenGLApp->mToEditExits)
-				mOpenGLApp->mCAModel.editExits(mOpenGLApp->mCamera.getWorldCoordinate(x, y));
-			else if (mOpenGLApp->mToEditObstacles)
-				mOpenGLApp->mCAModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinate(x, y));
+			if (mOpenGLApp->mFlgEditAgents)
+				mOpenGLApp->mCAModel.editAgents(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+			else if (mOpenGLApp->mFlgEditExits)
+				mOpenGLApp->mCAModel.editExits(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+			else if (mOpenGLApp->mFlgEditObstacles)
+				mOpenGLApp->mCAModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
 		}
 		break;
 	case GLUT_RIGHT_BUTTON:
 		if (state == GLUT_DOWN)
-			mOpenGLApp->mToDragCamera = true;
+			mOpenGLApp->mFlgDragCamera = true;
 		else
-			mOpenGLApp->mToDragCamera = false;
+			mOpenGLApp->mFlgDragCamera = false;
 		break;
 	/*
 	 * As we don't register a wheel callback, wheel events will be reported as mouse buttons (3 and 4).
@@ -92,12 +93,12 @@ void OpenGLApp::mouse(int button, int state, int x, int y) {
 }
 
 void OpenGLApp::motion(int x, int y) {
-	if (mOpenGLApp->mToDragCamera)
+	if (mOpenGLApp->mFlgDragCamera)
 		mOpenGLApp->mCamera.drag(x, y);
 }
 
 void OpenGLApp::passiveMotion(int x, int y) {
-	mOpenGLApp->mCamera.setMouseCoordinate(x, y);
+	mOpenGLApp->mCamera.setMouseCoordinates(x, y);
 }
 
 void displayCallback() {

@@ -4,49 +4,51 @@ CellularAutomatonModel::CellularAutomatonModel() {
 	mFloorField.read("./data/config_floorField.txt");
 	mAgentManager.read("./data/config_agent.txt");
 
-	mFloorField.update();
-	mFloorField.print();
+	mFloorField.update(mAgentManager.mAgents);
 
-	mIsOccupied = new bool*[mFloorField.mFloorFieldDim[1]];
+	mCellStates = new int*[mFloorField.mFloorFieldDim[1]];
 	for (int i = 0; i < mFloorField.mFloorFieldDim[1]; i++)
-		mIsOccupied[i] = new bool[mFloorField.mFloorFieldDim[0]];
-	setCellOccupancyState();
+		mCellStates[i] = new int[mFloorField.mFloorFieldDim[0]];
+	setCellStates();
 
 	mNumTimesteps = 0;
-	mRNG.seed(time(0));
+
+	mRNG.seed((unsigned int)time(0));
 }
 
 void CellularAutomatonModel::update() {
-	if (countAgentsHavingLeft() == mAgentManager.mNumAgents)
+	if (mAgentManager.mAgents.size() == 0)
 		return;
 
-	boost::random::uniform_real_distribution<> distribution(0.0, 1.0);
-	array2i *tmpAgents = new array2i[mAgentManager.mNumAgents]; // cell an agent will move to
-	
-	for (int i = 0; i < mAgentManager.mNumAgents; i++) {
-		if (!mAgentManager.mIsVisible[i])
-			continue;
+	mFloorField.update(mAgentManager.mAgents);
 
+	boost::random::uniform_real_distribution<> distribution(0.0, 1.0);
+	boost::container::vector<array2i> tmpAgents(mAgentManager.mAgents.size()); // cell an agent will move to
+
+	for (boost::container::vector<array2i>::iterator i = mAgentManager.mAgents.begin(), it = tmpAgents.begin(); i != mAgentManager.mAgents.end() && it != tmpAgents.end();) {
 		/*
 		 * Check whether the agent arrives at any exit.
 		 */
-		for (int j = 0; j < mFloorField.mNumExits; j++) {
-			if (mFloorField.mIsVisible_Exit[j] && mAgentManager.mAgents[i] == mFloorField.mExits[j]) {
-				mAgentManager.mIsVisible[i] = false;
-				mIsOccupied[mAgentManager.mAgents[i][1]][mAgentManager.mAgents[i][0]] = false;
+		for (unsigned int j = 0; j < mFloorField.mExits.size(); j++) {
+			for (unsigned int k = 0; k < mFloorField.mExits[j].size(); k++) {
+				if (*i == mFloorField.mExits[j][k]) {
+					mCellStates[(*i)[1]][(*i)[0]] = TYPE_EMPTY;
+					i = mAgentManager.mAgents.erase(i);
+					it = tmpAgents.erase(it);
+				}
 			}
 		}
-		if (!mAgentManager.mIsVisible[i]) // the agent arives at an exit indeed
-			continue;
+		if (i == mAgentManager.mAgents.end() && it == tmpAgents.end())
+			break;
 
 		/*
 		 * Handle agent movement.
 		 */
-		array2i curCoord = mAgentManager.mAgents[i];
+		array2i curCoord = *i;
 
 		if (distribution(mRNG) < mAgentManager.mPanicProb) { // agent in panic does not move
-			tmpAgents[i] = curCoord;
-			cout << "Agent " << i << " is in panic (Position: " << curCoord << ")" << endl;
+			*it = curCoord;
+			cout << "An agent is in panic at: " << curCoord << endl;
 		}
 		else {
 			/*
@@ -56,8 +58,8 @@ void CellularAutomatonModel::update() {
 			boost::container::small_vector<array2i, 9> possibleCoords;
 
 			// right cell
-			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && !mIsOccupied[curCoord[1]][curCoord[0] + 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1]][curCoord[0] + 1])
+			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && mCellStates[curCoord[1]][curCoord[0] + 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1]][curCoord[0] + 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1]][curCoord[0] + 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] + 1, curCoord[1] } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1]][curCoord[0] + 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1]][curCoord[0] + 1];
@@ -67,8 +69,8 @@ void CellularAutomatonModel::update() {
 			}
 
 			// left cell
-			if (curCoord[0] - 1 >= 0 && !mIsOccupied[curCoord[1]][curCoord[0] - 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1]][curCoord[0] - 1])
+			if (curCoord[0] - 1 >= 0 && mCellStates[curCoord[1]][curCoord[0] - 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1]][curCoord[0] - 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1]][curCoord[0] - 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] - 1, curCoord[1] } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1]][curCoord[0] - 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1]][curCoord[0] - 1];
@@ -78,8 +80,8 @@ void CellularAutomatonModel::update() {
 			}
 
 			// up cell
-			if (curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && !mIsOccupied[curCoord[1] + 1][curCoord[0]]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0]])
+			if (curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && mCellStates[curCoord[1] + 1][curCoord[0]] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0]] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] + 1][curCoord[0]])
 					possibleCoords.push_back(array2i{ { curCoord[0], curCoord[1] + 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] + 1][curCoord[0]]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] + 1][curCoord[0]];
@@ -89,8 +91,8 @@ void CellularAutomatonModel::update() {
 			}
 
 			// down cell
-			if (curCoord[1] - 1 >= 0 && !mIsOccupied[curCoord[1] - 1][curCoord[0]]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0]])
+			if (curCoord[1] - 1 >= 0 && mCellStates[curCoord[1] - 1][curCoord[0]] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0]] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] - 1][curCoord[0]])
 					possibleCoords.push_back(array2i{ { curCoord[0], curCoord[1] - 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] - 1][curCoord[0]]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] - 1][curCoord[0]];
@@ -100,8 +102,8 @@ void CellularAutomatonModel::update() {
 			}
 
 			// upper right cell
-			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && !mIsOccupied[curCoord[1] + 1][curCoord[0] + 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0] + 1])
+			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && mCellStates[curCoord[1] + 1][curCoord[0] + 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0] + 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] + 1][curCoord[0] + 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] + 1, curCoord[1] + 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] + 1][curCoord[0] + 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] + 1][curCoord[0] + 1];
@@ -111,8 +113,8 @@ void CellularAutomatonModel::update() {
 			}
 
 			// lower left cell
-			if (curCoord[0] - 1 >= 0 && curCoord[1] - 1 >= 0 && !mIsOccupied[curCoord[1] - 1][curCoord[0] - 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0] - 1])
+			if (curCoord[0] - 1 >= 0 && curCoord[1] - 1 >= 0 && mCellStates[curCoord[1] - 1][curCoord[0] - 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0] - 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] - 1][curCoord[0] - 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] - 1, curCoord[1] - 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] - 1][curCoord[0] - 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] - 1][curCoord[0] - 1];
@@ -122,8 +124,8 @@ void CellularAutomatonModel::update() {
 			}
 			
 			// lower right cell
-			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && curCoord[1] - 1 >= 0 && !mIsOccupied[curCoord[1] - 1][curCoord[0] + 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0] + 1])
+			if (curCoord[0] + 1 < mFloorField.mFloorFieldDim[0] && curCoord[1] - 1 >= 0 && mCellStates[curCoord[1] - 1][curCoord[0] + 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] - 1][curCoord[0] + 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] - 1][curCoord[0] + 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] + 1, curCoord[1] - 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] - 1][curCoord[0] + 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] - 1][curCoord[0] + 1];
@@ -133,8 +135,8 @@ void CellularAutomatonModel::update() {
 			}
 			
 			// upper left cell
-			if (curCoord[0] - 1 >= 0 && curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && !mIsOccupied[curCoord[1] + 1][curCoord[0] - 1]) {
-				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0] - 1])
+			if (curCoord[0] - 1 >= 0 && curCoord[1] + 1 < mFloorField.mFloorFieldDim[1] && mCellStates[curCoord[1] + 1][curCoord[0] - 1] == TYPE_EMPTY) {
+				if (lowestCellValue == mFloorField.mCells[curCoord[1] + 1][curCoord[0] - 1] && mFloorField.mCells[curCoord[1]][curCoord[0]] != mFloorField.mCells[curCoord[1] + 1][curCoord[0] - 1])
 					possibleCoords.push_back(array2i{ { curCoord[0] - 1, curCoord[1] + 1 } });
 				else if (lowestCellValue > mFloorField.mCells[curCoord[1] + 1][curCoord[0] - 1]) {
 					lowestCellValue = mFloorField.mCells[curCoord[1] + 1][curCoord[0] - 1];
@@ -147,28 +149,31 @@ void CellularAutomatonModel::update() {
 			 * Decide the cell where the agent will intend to move.
 			 */
 			if (possibleCoords.size() == 0)
-				tmpAgents[i] = curCoord;
+				*it = curCoord;
 			else
-				tmpAgents[i] = possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
+				*it = possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
 		}
+
+		i++;
+		it++;
 	}
 
 	/*
 	 * Handle agent interaction.
 	 */
-	bool *isProcessed = new bool[mAgentManager.mNumAgents];
-	std::fill_n(isProcessed, mAgentManager.mNumAgents, false);
+	bool *isProcessed = new bool[mAgentManager.mAgents.size()];
+	std::fill_n(isProcessed, mAgentManager.mAgents.size(), false);
 
-	for (int i = 0; i < mAgentManager.mNumAgents; i++) {
-		if (!mAgentManager.mIsVisible[i] || isProcessed[i])
+	for (unsigned int i = 0; i < mAgentManager.mAgents.size(); i++) {
+		if (isProcessed[i])
 			continue;
 
 		boost::container::small_vector<int, 9> agentsInConflict;
 		agentsInConflict.push_back(i);
 		isProcessed[i] = true;
 
-		for (int j = 0; j < mAgentManager.mNumAgents; j++) {
-			if (!mAgentManager.mIsVisible[j] || isProcessed[j])
+		for (unsigned int j = 0; j < mAgentManager.mAgents.size(); j++) {
+			if (isProcessed[j])
 				continue;
 
 			if (tmpAgents[i] == tmpAgents[j]) {
@@ -179,52 +184,54 @@ void CellularAutomatonModel::update() {
 
 		// move the agent
 		int winner = agentsInConflict[(int)floor(distribution(mRNG) * agentsInConflict.size())];
-		mIsOccupied[mAgentManager.mAgents[winner][1]][mAgentManager.mAgents[winner][0]] = false;
+		mCellStates[mAgentManager.mAgents[winner][1]][mAgentManager.mAgents[winner][0]] = TYPE_EMPTY;
 		mAgentManager.mAgents[winner] = tmpAgents[winner];
-		mIsOccupied[mAgentManager.mAgents[winner][1]][mAgentManager.mAgents[winner][0]] = true;
+		mCellStates[mAgentManager.mAgents[winner][1]][mAgentManager.mAgents[winner][0]] = TYPE_AGENT;
 	}
 
 	mNumTimesteps++;
 
-	cout << "Timestep " << mNumTimesteps << ": " << mAgentManager.mNumAgents - countAgentsHavingLeft() << " agent(s) having not left" << endl;
+	cout << "Timestep " << mNumTimesteps << ": " << mAgentManager.mAgents.size() << " agent(s) having not left" << endl;
 
 	delete[] isProcessed;
-	delete[] tmpAgents;
 }
 
 void CellularAutomatonModel::editAgents(array2f worldCoord) {
-	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } }; // coordinate in the floor field
+	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } };
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mFloorFieldDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mFloorFieldDim[1])
 		return;
 	// only cells which are not occupied by exits or obstacles can be edited
-	else if (mFloorField.isExisting_Exit(coord) == -1 && mFloorField.isExisting_Obstacle(coord) == -1) {
+	else if (!mFloorField.isExisting_Exit(coord) && mCellStates[coord[1]][coord[0]] != TYPE_OBSTACLE) {
 		mAgentManager.edit(coord);
-		setCellOccupancyState();
+		setCellStates();
+		mFloorField.update(mAgentManager.mAgents);
 	}
 }
 
 void CellularAutomatonModel::editExits(array2f worldCoord) {
-	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } }; // coordinate in the floor field
+	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } };
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mFloorFieldDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mFloorFieldDim[1])
 		return;
 	// only cells which are not occupied by agents or obstacles can be edited
-	else if (mAgentManager.isExisting(coord) == -1 && mFloorField.isExisting_Obstacle(coord) == -1) {
+	else if (mCellStates[coord[1]][coord[0]] != TYPE_AGENT && mCellStates[coord[1]][coord[0]] != TYPE_OBSTACLE) {
 		mFloorField.editExits(coord);
-		setCellOccupancyState();
+		setCellStates();
+		mFloorField.update(mAgentManager.mAgents);
 	}
 }
 
 void CellularAutomatonModel::editObstacles(array2f worldCoord) {
-	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } }; // coordinate in the floor field
+	array2i coord{ { (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) } };
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mFloorFieldDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mFloorFieldDim[1])
 		return;
 	// only cells which are not occupied by agents or exits can be edited
-	else if (mAgentManager.isExisting(coord) == -1 && mFloorField.isExisting_Exit(coord) == -1) {
+	else if (mCellStates[coord[1]][coord[0]] != TYPE_AGENT && !mFloorField.isExisting_Exit(coord)) {
 		mFloorField.editObstacles(coord);
-		setCellOccupancyState();
+		setCellStates();
+		mFloorField.update(mAgentManager.mAgents);
 	}
 }
 
@@ -242,29 +249,16 @@ void CellularAutomatonModel::draw() {
 	mAgentManager.draw();
 }
 
-void CellularAutomatonModel::setCellOccupancyState() {
+void CellularAutomatonModel::setCellStates() {
 	// initialize
 	for (int i = 0; i < mFloorField.mFloorFieldDim[1]; i++)
-		std::fill_n(mIsOccupied[i], mFloorField.mFloorFieldDim[0], false);
+		std::fill_n(mCellStates[i], mFloorField.mFloorFieldDim[0], TYPE_EMPTY);
 
 	// cell occupied by an obstacle
-	for (int i = 0; i < mFloorField.mNumObstacles; i++) {
-		if (mFloorField.mIsVisible_Obstacle[i])
-			mIsOccupied[mFloorField.mObstacles[i][1]][mFloorField.mObstacles[i][0]] = true;
-	}
+	for (unsigned int i = 0; i < mFloorField.mObstacles.size(); i++)
+		mCellStates[mFloorField.mObstacles[i][1]][mFloorField.mObstacles[i][0]] = TYPE_OBSTACLE;
 
 	// cell occupied by an agent
-	for (int i = 0; i < mAgentManager.mNumAgents; i++) {
-		if (mAgentManager.mIsVisible[i])
-			mIsOccupied[mAgentManager.mAgents[i][1]][mAgentManager.mAgents[i][0]] = true;
-	}
-}
-
-int CellularAutomatonModel::countAgentsHavingLeft() {
-	int num = 0;
-	for (int i = 0; i < mAgentManager.mNumAgents; i++) {
-		if (!mAgentManager.mIsVisible[i])
-			num++;
-	}
-	return num;
+	for (unsigned int i = 0; i < mAgentManager.mAgents.size(); i++)
+		mCellStates[mAgentManager.mAgents[i][1]][mAgentManager.mAgents[i][0]] = TYPE_AGENT;
 }

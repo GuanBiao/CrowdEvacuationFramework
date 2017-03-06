@@ -1,8 +1,7 @@
 FLOOR_FIELD_DIM 20 16
 CELL_SIZE       0.4 0.4
-EXIT            2
-                0 7
-                0 8
+EXIT            1
+                2 0 7 0 8
 OBSTACLE        66
                 0 0
                 1 0
@@ -71,3 +70,4 @@ OBSTACLE        66
                 19 13
                 19 14
 LAMBDA          1.5
+CROWD_AVOIDANCE 1.0

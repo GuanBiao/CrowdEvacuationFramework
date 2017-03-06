@@ -7,14 +7,15 @@
 
 class Camera {
 public:
-	int mWindowWidth, mWindowHeight;
+	int mWindowWidth;
+	int mWindowHeight;
 
 	Camera();
 	void setViewport( int width, int height );
 	void zoom( float factor );
 	void drag( int x, int y );
-	void setMouseCoordinate( int x, int y );
-	array2f getWorldCoordinate( int sx, int sy );
+	void setMouseCoordinates( int x, int y );
+	array2f getWorldCoordinates( int sx, int sy );
 	void update();
 
 private:
@@ -22,7 +23,7 @@ private:
 	float mHorizontalClippingPlane;
 	array2f mWorldToScreenRatio;
 	float mZoomFactor;
-	array2i mMouseCoordinate;
+	array2i mMouseCoordinates;
 	array2f mTargetPoint;
 };
 

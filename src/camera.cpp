@@ -24,20 +24,20 @@ void Camera::zoom(float factor) {
 }
 
 void Camera::drag(int x, int y) {
-	int dx = x - mMouseCoordinate[0];
-	int dy = y - mMouseCoordinate[1];
+	int dx = x - mMouseCoordinates[0];
+	int dy = y - mMouseCoordinates[1];
 	mTargetPoint[0] += dx * mWorldToScreenRatio[0];
 	mTargetPoint[1] += -dy * mWorldToScreenRatio[1];
 	update();
 
-	setMouseCoordinate(x, y);
+	setMouseCoordinates(x, y);
 }
 
-void Camera::setMouseCoordinate(int x, int y) {
-	mMouseCoordinate = array2i{ { x, y } };
+void Camera::setMouseCoordinates(int x, int y) {
+	mMouseCoordinates = array2i{ { x, y } };
 }
 
-array2f Camera::getWorldCoordinate(int sx, int sy) {
+array2f Camera::getWorldCoordinates(int sx, int sy) {
 	float aspectRatio = (float)mWindowWidth / mWindowHeight;
 	float left = -mVerticalClippingPlane + mZoomFactor;
 	float bottom = (-mHorizontalClippingPlane + mZoomFactor) / aspectRatio;
