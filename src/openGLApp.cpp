@@ -4,6 +4,7 @@ OpenGLApp *OpenGLApp::mOpenGLApp = 0;
 
 OpenGLApp::OpenGLApp() {
 	mFlgEnableColormap = false;
+	mFlgShowGrid = false;
 	mExecutionSpeed = 1.0;
 
 	mOpenGLApp = this;
@@ -31,6 +32,8 @@ void OpenGLApp::initOpenGL(int argc, char *argv[]) {
 	glDisable(GL_DEPTH_TEST);
 
 	createGUI();
+
+	mFrameStartTime = glutGet(GLUT_ELAPSED_TIME);
 }
 
 void OpenGLApp::runOpenGL() {
@@ -52,7 +55,14 @@ void OpenGLApp::display() {
 }
 
 void OpenGLApp::idle() {
+	// compute FPS
+	int frameEndTime = glutGet(GLUT_ELAPSED_TIME);
+	std::string title = "Crowd Evacuation Framework by Guan-Wen Lin. FPS: " + std::to_string(1000.0f / (frameEndTime - mOpenGLApp->mFrameStartTime));
+	glutSetWindowTitle(title.c_str());
+	mOpenGLApp->mFrameStartTime = frameEndTime;
+
 	glutSetWindow(mOpenGLApp->mMainWindowId);
+
 	glutPostRedisplay();
 }
 
@@ -121,7 +131,7 @@ void motionCallback(int x, int y) {
 	OpenGLApp::motion(x, y);
 }
 
-void passiveMotionCallback(int x, int y) {
+void passiveMotionCallback(int x, int y) { // called while no mouse buttons are pressed
 	OpenGLApp::passiveMotion(x, y);
 }
 

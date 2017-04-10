@@ -1,10 +1,34 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	mFloorField.read("./data/config_floorField.txt");
-	mAgentManager.read("./data/config_agent.txt");
+	mRNG.seed((unsigned int)time(0));
 
-	mFloorField.update(mAgentManager.mAgents);
+	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
+
+	bool isAgentProvided = mAgentManager.read("./data/config_agent.txt");
+	if (!isAgentProvided) {
+		boost::random::uniform_int_distribution<> x(0, mFloorField.mFloorFieldDim[0] - 1);
+		boost::random::uniform_int_distribution<> y(0, mFloorField.mFloorFieldDim[1] - 1);
+
+		for (unsigned int i = 0; i < mAgentManager.mAgents.size();) {
+			array2i coord{ { x(mRNG), y(mRNG) } };
+			if (!mFloorField.isExisting_Exit(coord) && !mFloorField.isExisting_Obstacle(coord)) { // an agent should not initially occupy an exit or obstacle 
+				bool duplicate = false;
+				for (unsigned int j = 0; j < i; j++) {
+					if (mAgentManager.mAgents[j] == coord) { // two agents should not occupy the same cell
+						duplicate = true;
+						break;
+					}
+				}
+				if (!duplicate) {
+					mAgentManager.mAgents[i] = coord;
+					i++;
+				}
+			}
+		}
+	}
+
+	mFloorField.update(mAgentManager.mAgents, false); // once the agents are loaded/generated, initialize the dynamic floor field
 
 	mCellStates = new int*[mFloorField.mFloorFieldDim[1]];
 	for (int i = 0; i < mFloorField.mFloorFieldDim[1]; i++)
@@ -12,15 +36,13 @@ CellularAutomatonModel::CellularAutomatonModel() {
 	setCellStates();
 
 	mNumTimesteps = 0;
-
-	mRNG.seed((unsigned int)time(0));
 }
 
 void CellularAutomatonModel::update() {
 	if (mAgentManager.mAgents.size() == 0)
 		return;
 
-	mFloorField.update(mAgentManager.mAgents);
+	mFloorField.update(mAgentManager.mAgents, false); // update the dynamic floor field
 
 	boost::random::uniform_real_distribution<> distribution(0.0, 1.0);
 	boost::container::vector<array2i> tmpAgents(mAgentManager.mAgents.size()); // cell an agent will move to
@@ -29,16 +51,16 @@ void CellularAutomatonModel::update() {
 		/*
 		 * Check whether the agent arrives at any exit.
 		 */
-		for (unsigned int j = 0; j < mFloorField.mExits.size(); j++) {
-			for (unsigned int k = 0; k < mFloorField.mExits[j].size(); k++) {
-				if (*i == mFloorField.mExits[j][k]) {
+		for (const auto &exit : mFloorField.mExits) {
+			for (const auto &e : exit) {
+				if (*i == e) {
 					mCellStates[(*i)[1]][(*i)[0]] = TYPE_EMPTY;
 					i = mAgentManager.mAgents.erase(i);
 					it = tmpAgents.erase(it);
 				}
 			}
 		}
-		if (i == mAgentManager.mAgents.end() && it == tmpAgents.end())
+		if (i == mAgentManager.mAgents.end() && it == tmpAgents.end()) // all agents have left
 			break;
 
 		/*
@@ -172,7 +194,7 @@ void CellularAutomatonModel::update() {
 		agentsInConflict.push_back(i);
 		isProcessed[i] = true;
 
-		for (unsigned int j = 0; j < mAgentManager.mAgents.size(); j++) {
+		for (unsigned int j = i + 1; j < mAgentManager.mAgents.size(); j++) {
 			if (isProcessed[j])
 				continue;
 
@@ -205,7 +227,7 @@ void CellularAutomatonModel::editAgents(array2f worldCoord) {
 	else if (!mFloorField.isExisting_Exit(coord) && mCellStates[coord[1]][coord[0]] != TYPE_OBSTACLE) {
 		mAgentManager.edit(coord);
 		setCellStates();
-		mFloorField.update(mAgentManager.mAgents);
+		mFloorField.update(mAgentManager.mAgents, false);
 	}
 }
 
@@ -218,7 +240,7 @@ void CellularAutomatonModel::editExits(array2f worldCoord) {
 	else if (mCellStates[coord[1]][coord[0]] != TYPE_AGENT && mCellStates[coord[1]][coord[0]] != TYPE_OBSTACLE) {
 		mFloorField.editExits(coord);
 		setCellStates();
-		mFloorField.update(mAgentManager.mAgents);
+		mFloorField.update(mAgentManager.mAgents, true); // also update the static floor field
 	}
 }
 
@@ -231,7 +253,7 @@ void CellularAutomatonModel::editObstacles(array2f worldCoord) {
 	else if (mCellStates[coord[1]][coord[0]] != TYPE_AGENT && !mFloorField.isExisting_Exit(coord)) {
 		mFloorField.editObstacles(coord);
 		setCellStates();
-		mFloorField.update(mAgentManager.mAgents);
+		mFloorField.update(mAgentManager.mAgents, true); // also update the static floor field
 	}
 }
 
@@ -255,10 +277,10 @@ void CellularAutomatonModel::setCellStates() {
 		std::fill_n(mCellStates[i], mFloorField.mFloorFieldDim[0], TYPE_EMPTY);
 
 	// cell occupied by an obstacle
-	for (unsigned int i = 0; i < mFloorField.mObstacles.size(); i++)
-		mCellStates[mFloorField.mObstacles[i][1]][mFloorField.mObstacles[i][0]] = TYPE_OBSTACLE;
+	for (const auto &obstacle : mFloorField.mObstacles)
+		mCellStates[obstacle[1]][obstacle[0]] = TYPE_OBSTACLE;
 
 	// cell occupied by an agent
-	for (unsigned int i = 0; i < mAgentManager.mAgents.size(); i++)
-		mCellStates[mAgentManager.mAgents[i][1]][mAgentManager.mAgents[i][0]] = TYPE_AGENT;
+	for (const auto &agent : mAgentManager.mAgents)
+		mCellStates[agent[1]][agent[0]] = TYPE_AGENT;
 }

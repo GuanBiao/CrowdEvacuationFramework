@@ -1,5 +1,5 @@
-#ifndef __AGENT_H__
-#define __AGENT_H__
+#ifndef __AGENTMANAGER_H__
+#define __AGENTMANAGER_H__
 
 #include <iostream>
 #include <fstream>
@@ -21,7 +21,7 @@ public:
 	float mAgentSize;
 	float mPanicProb;
 
-	void read( const char *fileName );
+	bool read( const char *fileName );
 	boost::optional<int> isExisting( array2i coord );
 	void edit( array2i coord );
 	void save();

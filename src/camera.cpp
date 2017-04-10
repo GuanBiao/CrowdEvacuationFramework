@@ -1,8 +1,8 @@
 #include "camera.h"
 
 Camera::Camera() {
-	mWindowWidth = 512;
-	mWindowHeight = 512;
+	mWindowWidth = 640;
+	mWindowHeight = 640;
 	mVerticalClippingPlane = 10.0;
 	mHorizontalClippingPlane = 10.0;
 	mWorldToScreenRatio = array2f{ { (mVerticalClippingPlane * 2) / mWindowWidth, (mHorizontalClippingPlane * 2) / mWindowHeight } };

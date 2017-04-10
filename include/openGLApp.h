@@ -11,6 +11,7 @@
 class OpenGLApp {
 public:
 	int mFlgEnableColormap;
+	int mFlgShowGrid;
 	float mExecutionSpeed;
 
 	OpenGLApp();
@@ -32,6 +33,7 @@ private:
 	bool mFlgEditObstacles;
 	bool mFlgDragCamera;
 	int mMainWindowId;
+	int mFrameStartTime;
 
 	CellularAutomatonModel mCAModel;
 	Camera mCamera;

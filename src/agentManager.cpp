@@ -1,9 +1,10 @@
 #include "agentManager.h"
 
-void AgentManager::read(const char *fileName) {
+bool AgentManager::read(const char *fileName) {
 	std::ifstream ifs(fileName, std::ios::in);
 	assert(ifs.good());
 
+	bool isAgentProvided;
 	std::string key;
 	while (ifs >> key) {
 		if (key.compare("AGENT") == 0) {
@@ -11,8 +12,11 @@ void AgentManager::read(const char *fileName) {
 			ifs >> numAgents;
 			mAgents.resize(numAgents);
 
-			for (int i = 0; i < numAgents; i++)
-				ifs >> mAgents[i][0] >> mAgents[i][1];
+			ifs >> isAgentProvided;
+			if (isAgentProvided == true) {
+				for (int i = 0; i < numAgents; i++)
+					ifs >> mAgents[i][0] >> mAgents[i][1];
+			}
 		}
 		else if (key.compare("AGENT_SIZE") == 0) {
 			ifs >> mAgentSize;
@@ -23,6 +27,8 @@ void AgentManager::read(const char *fileName) {
 	}
 
 	ifs.close();
+
+	return isAgentProvided;
 }
 
 boost::optional<int> AgentManager::isExisting(array2i coord) {
@@ -55,8 +61,9 @@ void AgentManager::save() {
 	std::ofstream ofs("./data/config_agent_saved_" + std::string(buffer) + ".txt", std::ios::out);
 
 	ofs << "AGENT      " << mAgents.size() << endl;
-	for (unsigned int i = 0; i < mAgents.size(); i++)
-		ofs << "           " << mAgents[i][0] << " " << mAgents[i][1] << endl;
+	ofs << "           " << true << endl; // indicate agent locations are provided as follows
+	for (const auto &agent : mAgents)
+		ofs << "           " << agent[0] << " " << agent[1] << endl;
 
 	ofs << "AGENT_SIZE " << mAgentSize << endl;
 
@@ -68,12 +75,12 @@ void AgentManager::save() {
 }
 
 void AgentManager::draw() {
-	for (unsigned int i = 0; i < mAgents.size(); i++) {
+	for (const auto &agent : mAgents) {
 		glColor3f(1.0, 1.0, 1.0);
-		drawFilledCircle(mAgentSize * mAgents[i][0] + mAgentSize / 2, mAgentSize * mAgents[i][1] + mAgentSize / 2, mAgentSize / 2.5f, 50);
+		drawFilledCircle(mAgentSize * agent[0] + mAgentSize / 2, mAgentSize * agent[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
 
 		glLineWidth(1.0);
 		glColor3f(0.0, 0.0, 0.0);
-		drawCircle(mAgentSize * mAgents[i][0] + mAgentSize / 2, mAgentSize * mAgents[i][1] + mAgentSize / 2, mAgentSize / 2.5f, 50);
+		drawCircle(mAgentSize * agent[0] + mAgentSize / 2, mAgentSize * agent[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
 	}
 }
