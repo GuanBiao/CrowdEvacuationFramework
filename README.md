@@ -8,6 +8,8 @@
 
 2017/04/10: Add multi-thread processing.
 
+2017/04/17: Improve cache locality.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb)

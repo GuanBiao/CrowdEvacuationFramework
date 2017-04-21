@@ -39,7 +39,7 @@ private:
 	Camera mCamera;
 
 	/*
-	 * Function definition is in openGLApp_gui.cpp.
+	 * Definition is in openGLApp_gui.cpp.
 	 */
 	void createGUI();
 	static void gluiCallback( int id );

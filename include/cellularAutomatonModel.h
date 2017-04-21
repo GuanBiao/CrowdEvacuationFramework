@@ -1,8 +1,8 @@
 #ifndef __CELLULARAUTOMATONMODEL_H__
 #define __CELLULARAUTOMATONMODEL_H__
 
-#include "boost/random.hpp"
-#include "boost/container/small_vector.hpp"
+#include <random>
+#include <chrono>
 
 #include "container.h"
 #include "floorField.h"
@@ -19,6 +19,7 @@ public:
 	AgentManager mAgentManager;
 
 	CellularAutomatonModel();
+	~CellularAutomatonModel() {}
 	void update();
 	void editAgents( array2f worldCoord );
 	void editExits( array2f worldCoord );
@@ -28,9 +29,10 @@ public:
 	void draw();
 
 private:
-	int **mCellStates; // use [y-coordinate][x-coordinate] to access elements
+	arrayNi mCellStates; // use [y-coordinate * mFloorField.mFloorFieldDim[0] + x-coordinate] to access elements
 	int mNumTimesteps;
-	boost::random::mt19937 mRNG;
+	double mElapsedTime;
+	std::mt19937 mRNG;
 
 	void setCellStates();
 };

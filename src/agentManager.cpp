@@ -10,20 +10,21 @@ bool AgentManager::read(const char *fileName) {
 		if (key.compare("AGENT") == 0) {
 			int numAgents;
 			ifs >> numAgents;
-			mAgents.resize(numAgents);
+			mAgents.reserve(numAgents);
 
 			ifs >> isAgentProvided;
 			if (isAgentProvided == true) {
-				for (int i = 0; i < numAgents; i++)
-					ifs >> mAgents[i][0] >> mAgents[i][1];
+				int x, y;
+				for (int i = 0; i < numAgents; i++) {
+					ifs >> x >> y;
+					mAgents.push_back(array2i{ x, y });
+				}
 			}
 		}
-		else if (key.compare("AGENT_SIZE") == 0) {
+		else if (key.compare("AGENT_SIZE") == 0)
 			ifs >> mAgentSize;
-		}
-		else if (key.compare("PANIC_PROB") == 0) {
+		else if (key.compare("PANIC_PROB") == 0)
 			ifs >> mPanicProb;
-		}
 	}
 
 	ifs.close();
@@ -32,10 +33,9 @@ bool AgentManager::read(const char *fileName) {
 }
 
 boost::optional<int> AgentManager::isExisting(array2i coord) {
-	for (unsigned int i = 0; i < mAgents.size(); i++) {
-		if (mAgents[i] == coord)
-			return i;
-	}
+	std::vector<array2i>::iterator i = std::find(mAgents.begin(), mAgents.end(), coord);
+	if (i != mAgents.end())
+		return i - mAgents.begin();
 	return boost::none;
 }
 

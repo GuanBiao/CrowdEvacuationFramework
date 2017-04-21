@@ -4,9 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
 #include <ctime>
 #include "GL/freeglut.h"
-#include "boost/container/vector.hpp"
 #include "boost/optional.hpp"
 
 #include "container.h"
@@ -17,7 +17,7 @@ using std::endl;
 
 class AgentManager {
 public:
-	boost::container::vector<array2i> mAgents;
+	std::vector<array2i> mAgents;
 	float mAgentSize;
 	float mPanicProb;
 
