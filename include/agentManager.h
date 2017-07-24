@@ -20,6 +20,7 @@ public:
 	std::vector<array2i> mAgents;
 	float mAgentSize;
 	float mPanicProb;
+	int mFlgEnableColormap;
 
 	bool read( const char *fileName );
 	boost::optional<int> isExisting( array2i coord );

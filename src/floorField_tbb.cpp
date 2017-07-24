@@ -5,7 +5,7 @@
 #include "floorField.h"
 
 struct UpdateCellsDynamic {
-	array2i mFloorFieldDim;
+	array2i mDim;
 	const std::vector<std::vector<array2i>> *mExits;
 	float mCrowdAvoidance;
 	const std::vector<arrayNd> *mCellsForExitsStatic;
@@ -27,7 +27,7 @@ struct UpdateCellsDynamic {
 					P = (*agents).size();
 				else {
 					for (size_t k = 0; k < (*agents).size(); k++) {
-						int index = (*agents)[k][1] * mFloorFieldDim[0] + (*agents)[k][0];
+						int index = (*agents)[k][1] * mDim[0] + (*agents)[k][0];
 						if ((*mCellsForExitsStatic)[i][j] > (*mCellsForExitsStatic)[i][index])
 							P++;
 						else if ((*mCellsForExitsStatic)[i][j] == (*mCellsForExitsStatic)[i][index])
@@ -47,9 +47,15 @@ void FloorField::updateCellsStatic_tbb() {
 		// initialize the static floor field
 		std::fill(mCellsForExitsStatic[i].begin(), mCellsForExitsStatic[i].end(), INIT_WEIGHT);
 		for (const auto &e : mExits[i])
-			mCellsForExitsStatic[i][e[1] * mFloorFieldDim[0] + e[0]] = EXIT_WEIGHT;
+			mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = EXIT_WEIGHT;
+		for (size_t j = 0; j < mExits.size(); j++) {
+			if (i != j) {
+				for (const auto &e : mExits[j])
+					mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = OBSTACLE_WEIGHT; // view other exits as obstacles
+			}
+		}
 		for (const auto &obstacle : mObstacles)
-			mCellsForExitsStatic[i][obstacle[1] * mFloorFieldDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][obstacle[1] * mDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
 
 		// compute the static weight
 		for (const auto &e : mExits[i])
@@ -64,12 +70,12 @@ void FloorField::updateCellsDynamic_tbb(const std::vector<array2i> &agents) {
 	for (size_t i = 0; i < mExits.size(); i++) {
 		double max = 0.0;
 		for (size_t j = 0; j < agents.size(); j++)
-			max = max < mCellsForExitsStatic[i][agents[j][1] * mFloorFieldDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mFloorFieldDim[0] + agents[j][0]] : max;
+			max = max < mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] : max;
 		maxs[i] = max;
 	}
 
 	UpdateCellsDynamic body;
-	body.mFloorFieldDim = mFloorFieldDim;
+	body.mDim = mDim;
 	body.mExits = &mExits;
 	body.mCrowdAvoidance = mCrowdAvoidance;
 	body.mCellsForExitsStatic = &mCellsForExitsStatic;
@@ -78,5 +84,5 @@ void FloorField::updateCellsDynamic_tbb(const std::vector<array2i> &agents) {
 	body.agents = &agents;
 	body.maxs = &maxs;
 
-	tbb::parallel_for(tbb::blocked_range2d<size_t, int>(0, mExits.size(), 0, mFloorFieldDim[0] * mFloorFieldDim[1]), body);
+	tbb::parallel_for(tbb::blocked_range2d<size_t, int>(0, mExits.size(), 0, mDim[0] * mDim[1]), body);
 }

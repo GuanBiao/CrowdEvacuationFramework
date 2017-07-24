@@ -20,18 +20,20 @@ public:
 
 	CellularAutomatonModel();
 	~CellularAutomatonModel() {}
-	void update();
+	virtual void update();
 	void editAgents( array2f worldCoord );
 	void editExits( array2f worldCoord );
 	void editObstacles( array2f worldCoord );
 	void refreshTimer();
-	void save();
-	void draw();
+	virtual void save();
+	virtual void draw();
 
-private:
-	arrayNi mCellStates; // use [y-coordinate * mFloorField.mFloorFieldDim[0] + x-coordinate] to access elements
-	int mNumTimesteps;
+protected:
+	arrayNi mCellStates; // use [y-coordinate * mFloorField.mDim[0] + x-coordinate] to access elements
+	int mTimesteps;
 	double mElapsedTime;
+	bool mFlgUpdateStatic;
+	bool mFlgAgentEdited;
 	std::mt19937 mRNG;
 
 	void setCellStates();

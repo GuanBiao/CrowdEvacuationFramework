@@ -23,11 +23,12 @@ void OpenGLApp::createGUI() {
 void OpenGLApp::gluiCallback(int id) {
 	switch (id) {
 	case 1: // enable/disable colormap
-		mOpenGLApp->mCAModel.mFloorField.setFlgEnableColormap(mOpenGLApp->mFlgEnableColormap);
+		mOpenGLApp->mCAModel.mFloorField.mFlgEnableColormap = mOpenGLApp->mFlgEnableColormap;
+		mOpenGLApp->mCAModel.mAgentManager.mFlgEnableColormap = mOpenGLApp->mFlgEnableColormap;
 		break;
 
 	case 2: // show/hide grid
-		mOpenGLApp->mCAModel.mFloorField.setFlgShowGrid(mOpenGLApp->mFlgShowGrid);
+		mOpenGLApp->mCAModel.mFloorField.mFlgShowGrid = mOpenGLApp->mFlgShowGrid;
 		break;
 
 	case 3: // adjust simulation speed
@@ -66,7 +67,7 @@ void OpenGLApp::gluiCallback(int id) {
 		mOpenGLApp->mFlgEditAgents = false;
 		mOpenGLApp->mFlgEditExits = false;
 		mOpenGLApp->mFlgEditObstacles = false;
-		cout << "[Mode: Simulation]" << endl;
+		cout << (mOpenGLApp->mFlgRunApp ? "[Mode: Start simulation]" : "[Mode: Stop simulation]") << endl;
 		break;
 
 	case 8: // refresh timer
@@ -74,10 +75,11 @@ void OpenGLApp::gluiCallback(int id) {
 		break;
 
 	case 9: // reset
-		mOpenGLApp->mCAModel.~CellularAutomatonModel();       // explicitly call the destructor to release any resources
-		new (&mOpenGLApp->mCAModel) CellularAutomatonModel(); // use placement new to run the constructor using already-allocated memory
-		mOpenGLApp->mCAModel.mFloorField.setFlgEnableColormap(mOpenGLApp->mFlgEnableColormap);
-		mOpenGLApp->mCAModel.mFloorField.setFlgShowGrid(mOpenGLApp->mFlgShowGrid);
+		mOpenGLApp->mCAModel.~CellularAutomatonModel_GA();     // explicitly call the destructor to release any resources
+		new (&mOpenGLApp->mCAModel) CellularAutomatonModel_GA; // use placement new to run the constructor using already-allocated memory
+		mOpenGLApp->mCAModel.mFloorField.mFlgEnableColormap = mOpenGLApp->mFlgEnableColormap;
+		mOpenGLApp->mCAModel.mFloorField.mFlgShowGrid = mOpenGLApp->mFlgShowGrid;
+		mOpenGLApp->mCAModel.mAgentManager.mFlgEnableColormap = mOpenGLApp->mFlgEnableColormap;
 		mOpenGLApp->mFlgRunApp = false;
 		mOpenGLApp->mFlgEditAgents = false;
 		mOpenGLApp->mFlgEditExits = false;

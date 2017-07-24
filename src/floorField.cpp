@@ -6,8 +6,8 @@ void FloorField::read(const char *fileName) {
 
 	std::string key;
 	while (ifs >> key) {
-		if (key.compare("FLOOR_FIELD_DIM") == 0)
-			ifs >> mFloorFieldDim[0] >> mFloorFieldDim[1];
+		if (key.compare("DIM") == 0)
+			ifs >> mDim[0] >> mDim[1];
 		else if (key.compare("CELL_SIZE") == 0)
 			ifs >> mCellSize[0] >> mCellSize[1];
 		else if (key.compare("EXIT") == 0) {
@@ -38,18 +38,18 @@ void FloorField::read(const char *fileName) {
 			ifs >> mCrowdAvoidance;
 	}
 
-	mCells.resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
+	mCells.resize(mDim[0] * mDim[1]);
 
 	mCellsForExits.resize(mExits.size());
 	mCellsForExitsStatic.resize(mExits.size());
 	mCellsForExitsDynamic.resize(mExits.size());
 	for (size_t i = 0; i < mExits.size(); i++) {
-		mCellsForExits[i].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-		mCellsForExitsStatic[i].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-		mCellsForExitsDynamic[i].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
+		mCellsForExits[i].resize(mDim[0] * mDim[1]);
+		mCellsForExitsStatic[i].resize(mDim[0] * mDim[1]);
+		mCellsForExitsDynamic[i].resize(mDim[0] * mDim[1]);
 	}
 
-	mCellStates.resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
+	mCellStates.resize(mDim[0] * mDim[1]);
 	setCellStates();
 
 	updateCellsStatic_tbb(); // static floor field should only be computed once unless the scene is changed
@@ -62,16 +62,16 @@ void FloorField::read(const char *fileName) {
 
 void FloorField::print() {
 	cout << "Floor field:" << endl;
-	for (int y = mFloorFieldDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mFloorFieldDim[0]; x++)
-			printf("%6.1f ", mCells[y * mFloorFieldDim[0] + x]);
+	for (int y = mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mDim[0]; x++)
+			printf("%6.1f ", mCells[y * mDim[0] + x]);
 		printf("\n");
 	}
 
 	cout << "Cell States:" << endl;
-	for (int y = mFloorFieldDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mFloorFieldDim[0]; x++)
-			printf("%3d ", mCellStates[y * mFloorFieldDim[0] + x]);
+	for (int y = mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mDim[0]; x++)
+			printf("%3d ", mCellStates[y * mDim[0] + x]);
 		printf("\n");
 	}
 }
@@ -151,20 +151,20 @@ void FloorField::editExits(array2i coord) {
 			mCellsForExits.resize(mExits.size());
 			mCellsForExitsStatic.resize(mExits.size());
 			mCellsForExitsDynamic.resize(mExits.size());
-			mCellsForExits[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-			mCellsForExitsStatic[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-			mCellsForExitsDynamic[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
+			mCellsForExits[mExits.size() - 1].resize(mDim[0] * mDim[1]);
+			mCellsForExitsStatic[mExits.size() - 1].resize(mDim[0] * mDim[1]);
+			mCellsForExitsDynamic[mExits.size() - 1].resize(mDim[0] * mDim[1]);
 			cout << "An exit is added at: " << coord << endl;
 			break;
 		case 1:
 			if (isRight)
-				mExits[mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + 1)]].push_back(coord);
+				mExits[mCellStates[coord[1] * mDim[0] + (coord[0] + 1)]].push_back(coord);
 			else if (isLeft)
-				mExits[mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] - 1)]].push_back(coord);
+				mExits[mCellStates[coord[1] * mDim[0] + (coord[0] - 1)]].push_back(coord);
 			else if (isUp)
-				mExits[mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + coord[0]]].push_back(coord);
+				mExits[mCellStates[(coord[1] + 1) * mDim[0] + coord[0]]].push_back(coord);
 			else
-				mExits[mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + coord[0]]].push_back(coord);
+				mExits[mCellStates[(coord[1] - 1) * mDim[0] + coord[0]]].push_back(coord);
 			cout << "An exit is changed at: " << coord << endl;
 			break;
 		case 2:
@@ -194,14 +194,6 @@ void FloorField::editObstacles(array2i coord) {
 	setCellStates();
 }
 
-void FloorField::setFlgEnableColormap(int flg) {
-	mFlgEnableColormap = flg;
-}
-
-void FloorField::setFlgShowGrid(int flg) {
-	mFlgShowGrid = flg;
-}
-
 void FloorField::save() {
 	time_t rawTime;
 	struct tm timeInfo;
@@ -212,7 +204,7 @@ void FloorField::save() {
 
 	std::ofstream ofs("./data/config_floorField_saved_" + std::string(buffer) + ".txt", std::ios::out);
 
-	ofs << "FLOOR_FIELD_DIM " << mFloorFieldDim[0] << " " << mFloorFieldDim[1] << endl;
+	ofs << "DIM             " << mDim[0] << " " << mDim[1] << endl;
 
 	ofs << "CELL_SIZE       " << mCellSize[0] << " " << mCellSize[1] << endl;
 
@@ -243,13 +235,13 @@ void FloorField::draw() {
 	if (mFlgEnableColormap) {
 		auto comp = [](double i, double j) -> bool { return ((i != INIT_WEIGHT) & (i != OBSTACLE_WEIGHT)) * i < ((j != INIT_WEIGHT) & (j != OBSTACLE_WEIGHT)) * j; };
 		double vmax = *std::max_element(mCells.begin(), mCells.end(), comp);
-		for (int y = 0; y < mFloorFieldDim[1]; y++) {
-			for (int x = 0; x < mFloorFieldDim[0]; x++) {
-				if (mCells[y * mFloorFieldDim[0] + x] == INIT_WEIGHT)
+		for (int y = 0; y < mDim[1]; y++) {
+			for (int x = 0; x < mDim[0]; x++) {
+				if (mCells[y * mDim[0] + x] == INIT_WEIGHT)
 					glColor3f(1.0, 1.0, 1.0);
 				else {
-					array3f color = getColorJet(mCells[y * mFloorFieldDim[0] + x], EXIT_WEIGHT, vmax);
-					glColor3f(color[0], color[1], color[2]);
+					array3f color = getColorJet(mCells[y * mDim[0] + x], EXIT_WEIGHT, vmax);
+					glColor3fv(color.data());
 				}
 				glBegin(GL_QUADS);
 				glVertex3f(mCellSize[0] * x, mCellSize[1] * y, 0.0);
@@ -272,25 +264,6 @@ void FloorField::draw() {
 		glVertex3f(mCellSize[0] * (obstacle[0] + 1), mCellSize[1] * obstacle[1], 0.0);
 		glVertex3f(mCellSize[0] * (obstacle[0] + 1), mCellSize[1] * (obstacle[1] + 1), 0.0);
 		glVertex3f(mCellSize[0] * obstacle[0], mCellSize[1] * (obstacle[1] + 1), 0.0);
-		glEnd();
-	}
-
-	/*
-	 * Draw the grid.
-	 */
-	if (mFlgShowGrid) {
-		glLineWidth(1.0);
-		glColor3f(0.5, 0.5, 0.5);
-
-		glBegin(GL_LINES);
-		for (int i = 0; i <= mFloorFieldDim[0]; i++) {
-			glVertex3f(mCellSize[0] * i, 0.0, 0.0);
-			glVertex3f(mCellSize[0] * i, mCellSize[1] * mFloorFieldDim[1], 0.0);
-		}
-		for (int i = 0; i <= mFloorFieldDim[1]; i++) {
-			glVertex3f(0.0, mCellSize[1] * i, 0.0);
-			glVertex3f(mCellSize[0] * mFloorFieldDim[0], mCellSize[1] * i, 0.0);
-		}
 		glEnd();
 	}
 
@@ -318,6 +291,25 @@ void FloorField::draw() {
 			}
 		}
 	}
+
+	/*
+	 * Draw the grid.
+	 */
+	if (mFlgShowGrid) {
+		glLineWidth(1.0);
+		glColor3f(0.5, 0.5, 0.5);
+
+		glBegin(GL_LINES);
+		for (int i = 0; i <= mDim[0]; i++) {
+			glVertex3f(mCellSize[0] * i, 0.0, 0.0);
+			glVertex3f(mCellSize[0] * i, mCellSize[1] * mDim[1], 0.0);
+		}
+		for (int i = 0; i <= mDim[1]; i++) {
+			glVertex3f(0.0, mCellSize[1] * i, 0.0);
+			glVertex3f(mCellSize[0] * mDim[0], mCellSize[1] * i, 0.0);
+		}
+		glEnd();
+	}
 }
 
 void FloorField::removeCells(int i) {
@@ -333,43 +325,43 @@ bool FloorField::validateExitAdjacency(array2i coord, int &numNeighbors, bool &i
 	isRight = isLeft = isUp = isDown = isUpperRight = isLowerLeft = isLowerRight = isUpperLeft = false;
 
 	// right cell
-	if (coord[0] + 1 < mFloorFieldDim[0] && !(mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE)) {
+	if (coord[0] + 1 < mDim[0] && !(mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE)) {
 		isRight = true;
 		numNeighbors++;
 	}
 
 	// left cell
-	if (coord[0] - 1 >= 0 && !(mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE)) {
+	if (coord[0] - 1 >= 0 && !(mCellStates[coord[1] * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE)) {
 		isLeft = true;
 		numNeighbors++;
 	}
 
 	// up cell
-	if (coord[1] + 1 < mFloorFieldDim[1] && !(mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + coord[0]] == TYPE_OBSTACLE)) {
+	if (coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + coord[0]] == TYPE_OBSTACLE)) {
 		isUp = true;
 		numNeighbors++;
 	}
 
 	// down cell
-	if (coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + coord[0]] == TYPE_OBSTACLE)) {
+	if (coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] == TYPE_OBSTACLE)) {
 		isDown = true;
 		numNeighbors++;
 	}
 
 	// upper right cell
-	if (coord[0] + 1 < mFloorFieldDim[0] && coord[1] + 1 < mFloorFieldDim[1] && !(mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
+	if (coord[0] + 1 < mDim[0] && coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
 		isUpperRight = true;
 
 	// lower left cell
-	if (coord[0] - 1 >= 0 && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
+	if (coord[0] - 1 >= 0 && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
 		isLowerLeft = true;
 
 	// lower right cell
-	if (coord[0] + 1 < mFloorFieldDim[0] && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
+	if (coord[0] + 1 < mDim[0] && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
 		isLowerRight = true;
 
 	// upper left cell
-	if (coord[0] - 1 >= 0 && coord[1] + 1 < mFloorFieldDim[1] && !(mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
+	if (coord[0] - 1 >= 0 && coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
 		isUpperLeft = true;
 
 	switch (numNeighbors) {
@@ -405,21 +397,21 @@ void FloorField::combineExits(array2i coord, int direction) {
 	 * Handle the left/up exit.
 	 */
 	if (direction == DIR_HORIZONTAL) {
-		exitIndices = array2i{ mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] - 1)], mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + 1)] };
+		exitIndices = array2i{ mCellStates[coord[1] * mDim[0] + (coord[0] - 1)], mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] };
 
 		mExits[exitIndices[0]].push_back(coord);
-		for (int i = 1; coord[0] + i < mFloorFieldDim[0]; i++) {
-			if (mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
+		for (int i = 1; coord[0] + i < mDim[0]; i++) {
+			if (mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
 				break;
 			mExits[exitIndices[0]].push_back(array2i{ coord[0] + i, coord[1] });
 		}
 	}
 	else {
-		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + coord[0]], mCellStates[(coord[1] - 1) * mFloorFieldDim[0] + coord[0]] };
+		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mDim[0] + coord[0]], mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] };
 
 		mExits[exitIndices[0]].push_back(coord);
 		for (int i = 1; coord[1] - i >= 0; i++) {
-			if (mCellStates[(coord[1] - i) * mFloorFieldDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mFloorFieldDim[0] + coord[0]] == TYPE_OBSTACLE)
+			if (mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_OBSTACLE)
 				break;
 			mExits[exitIndices[0]].push_back(array2i{ coord[0], coord[1] - i });
 		}
@@ -440,19 +432,19 @@ void FloorField::divideExit(array2i coord, int direction) {
 	 * Handle the right/down exit.
 	 */
 	if (direction == DIR_HORIZONTAL) {
-		exitIndices = array2i{ mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] - 1)], (int)mExits.size() };
+		exitIndices = array2i{ mCellStates[coord[1] * mDim[0] + (coord[0] - 1)], (int)mExits.size() };
 
-		for (int i = 1; coord[0] + i < mFloorFieldDim[0]; i++) {
-			if (mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mFloorFieldDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
+		for (int i = 1; coord[0] + i < mDim[0]; i++) {
+			if (mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
 				break;
 			tmpExit.push_back(array2i{ coord[0] + i, coord[1] });
 		}
 	}
 	else {
-		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mFloorFieldDim[0] + coord[0]], (int)mExits.size() };
+		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mDim[0] + coord[0]], (int)mExits.size() };
 
 		for (int i = 1; coord[1] - i >= 0; i++) {
-			if (mCellStates[(coord[1] - i) * mFloorFieldDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mFloorFieldDim[0] + coord[0]] == TYPE_OBSTACLE)
+			if (mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_OBSTACLE)
 				break;
 			tmpExit.push_back(array2i{ coord[0], coord[1] - i });
 		}
@@ -461,9 +453,9 @@ void FloorField::divideExit(array2i coord, int direction) {
 	mCellsForExits.resize(mExits.size());
 	mCellsForExitsStatic.resize(mExits.size());
 	mCellsForExitsDynamic.resize(mExits.size());
-	mCellsForExits[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-	mCellsForExitsStatic[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
-	mCellsForExitsDynamic[mExits.size() - 1].resize(mFloorFieldDim[0] * mFloorFieldDim[1]);
+	mCellsForExits[mExits.size() - 1].resize(mDim[0] * mDim[1]);
+	mCellsForExitsStatic[mExits.size() - 1].resize(mDim[0] * mDim[1]);
+	mCellsForExitsDynamic[mExits.size() - 1].resize(mDim[0] * mDim[1]);
 
 	/*
 	 * Handle the left/up exit.
@@ -485,9 +477,15 @@ void FloorField::updateCellsStatic() {
 		// initialize the static floor field
 		std::fill(mCellsForExitsStatic[i].begin(), mCellsForExitsStatic[i].end(), INIT_WEIGHT);
 		for (const auto &e : mExits[i])
-			mCellsForExitsStatic[i][e[1] * mFloorFieldDim[0] + e[0]] = EXIT_WEIGHT;
+			mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = EXIT_WEIGHT;
+		for (size_t j = 0; j < mExits.size(); j++) {
+			if (i != j) {
+				for (const auto &e : mExits[j])
+					mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = OBSTACLE_WEIGHT; // view other exits as obstacles
+			}
+		}
 		for (const auto &obstacle : mObstacles)
-			mCellsForExitsStatic[i][obstacle[1] * mFloorFieldDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][obstacle[1] * mDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
 
 		// compute the static weight
 		for (const auto &e : mExits[i])
@@ -499,9 +497,9 @@ void FloorField::updateCellsDynamic(const std::vector<array2i> &agents) {
 	for (size_t i = 0; i < mExits.size(); i++) {
 		double max = 0.0;
 		for (size_t j = 0; j < agents.size(); j++)
-			max = max < mCellsForExitsStatic[i][agents[j][1] * mFloorFieldDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mFloorFieldDim[0] + agents[j][0]] : max;
+			max = max < mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] : max;
 
-		for (int j = 0; j < mFloorFieldDim[0] * mFloorFieldDim[1]; j++) {
+		for (int j = 0; j < mDim[0] * mDim[1]; j++) {
 			if (mCellStates[j] == TYPE_OBSTACLE) {
 				mCellsForExitsDynamic[i][j] = 0.0;
 				continue;
@@ -512,7 +510,7 @@ void FloorField::updateCellsDynamic(const std::vector<array2i> &agents) {
 				P = agents.size();
 			else {
 				for (size_t k = 0; k < agents.size(); k++) {
-					int index = agents[k][1] * mFloorFieldDim[0] + agents[k][0];
+					int index = agents[k][1] * mDim[0] + agents[k][0];
 					if (mCellsForExitsStatic[i][j] > mCellsForExitsStatic[i][index])
 						P++;
 					else if (mCellsForExitsStatic[i][j] == mCellsForExitsStatic[i][index])
@@ -530,12 +528,12 @@ void FloorField::evaluateCells(int i, array2i root) {
 
 	while (!toDoList.empty()) {
 		array2i cell = toDoList.front();
-		int curIndex = cell[1] * mFloorFieldDim[0] + cell[0], adjIndex;
+		int curIndex = cell[1] * mDim[0] + cell[0], adjIndex;
 		toDoList.pop();
 
 		// right cell
-		adjIndex = cell[1] * mFloorFieldDim[0] + (cell[0] + 1);
-		if (cell[0] + 1 < mFloorFieldDim[0] && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = cell[1] * mDim[0] + (cell[0] + 1);
+		if (cell[0] + 1 < mDim[0] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
 				toDoList.push(array2i{ cell[0] + 1, cell[1] });
@@ -543,8 +541,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// left cell
-		adjIndex = cell[1] * mFloorFieldDim[0] + (cell[0] - 1);
-		if (cell[0] - 1 >= 0 && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = cell[1] * mDim[0] + (cell[0] - 1);
+		if (cell[0] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
 				toDoList.push(array2i{ cell[0] - 1, cell[1] });
@@ -552,8 +550,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// up cell
-		adjIndex = (cell[1] + 1) * mFloorFieldDim[0] + cell[0];
-		if (cell[1] + 1 < mFloorFieldDim[1] && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] + 1) * mDim[0] + cell[0];
+		if (cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
 				toDoList.push(array2i{ cell[0], cell[1] + 1 });
@@ -561,8 +559,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// down cell
-		adjIndex = (cell[1] - 1) * mFloorFieldDim[0] + cell[0];
-		if (cell[1] - 1 >= 0 && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] - 1) * mDim[0] + cell[0];
+		if (cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
 				toDoList.push(array2i{ cell[0], cell[1] - 1 });
@@ -570,8 +568,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// upper right cell
-		adjIndex = (cell[1] + 1) * mFloorFieldDim[0] + (cell[0] + 1);
-		if (cell[0] + 1 < mFloorFieldDim[0] && cell[1] + 1 < mFloorFieldDim[1] && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] + 1) * mDim[0] + (cell[0] + 1);
+		if (cell[0] + 1 < mDim[0] && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
 				toDoList.push(array2i{ cell[0] + 1, cell[1] + 1 });
@@ -579,8 +577,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// lower left cell
-		adjIndex = (cell[1] - 1) * mFloorFieldDim[0] + (cell[0] - 1);
-		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] - 1) * mDim[0] + (cell[0] - 1);
+		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
 				toDoList.push(array2i{ cell[0] - 1, cell[1] - 1 });
@@ -588,8 +586,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// lower right cell
-		adjIndex = (cell[1] - 1) * mFloorFieldDim[0] + (cell[0] + 1);
-		if (cell[0] + 1 < mFloorFieldDim[0] && cell[1] - 1 >= 0 && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] - 1) * mDim[0] + (cell[0] + 1);
+		if (cell[0] + 1 < mDim[0] && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
 				toDoList.push(array2i{ cell[0] + 1, cell[1] - 1 });
@@ -597,8 +595,8 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// upper left cell
-		adjIndex = (cell[1] + 1) * mFloorFieldDim[0] + (cell[0] - 1);
-		if (cell[0] - 1 >= 0 && cell[1] + 1 < mFloorFieldDim[1] && mCellStates[adjIndex] != TYPE_OBSTACLE) {
+		adjIndex = (cell[1] + 1) * mDim[0] + (cell[0] - 1);
+		if (cell[0] - 1 >= 0 && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
 				toDoList.push(array2i{ cell[0] - 1, cell[1] + 1 });
@@ -614,10 +612,10 @@ void FloorField::setCellStates() {
 	// cell occupied by an exit
 	for (size_t i = 0; i < mExits.size(); i++) {
 		for (size_t j = 0; j < mExits[i].size(); j++)
-			mCellStates[mExits[i][j][1] * mFloorFieldDim[0] + mExits[i][j][0]] = i; // record which exit the cell is occupied by
+			mCellStates[mExits[i][j][1] * mDim[0] + mExits[i][j][0]] = i; // record which exit the cell is occupied by
 	}
 
 	// cell occupied by an obstacle
 	for (const auto &obstacle : mObstacles)
-		mCellStates[obstacle[1] * mFloorFieldDim[0] + obstacle[0]] = TYPE_OBSTACLE;
+		mCellStates[obstacle[1] * mDim[0] + obstacle[0]] = TYPE_OBSTACLE;
 }

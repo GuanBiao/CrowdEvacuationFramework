@@ -12,6 +12,7 @@ typedef std::array<float, 3> array3f;
 
 typedef std::vector<int> arrayNi;
 typedef std::vector<double> arrayNd;
+typedef std::vector<bool> arrayNb;
 
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const std::array<T, 2> &array) {

@@ -27,6 +27,8 @@ bool AgentManager::read(const char *fileName) {
 			ifs >> mPanicProb;
 	}
 
+	mFlgEnableColormap = false;
+
 	ifs.close();
 
 	return isAgentProvided;

@@ -1,4 +1,4 @@
-AGENT      5000
+AGENT      1500
            0
 AGENT_SIZE 0.4
 PANIC_PROB 0.05

@@ -6,6 +6,7 @@
 #include "GL/glui.h"
 
 #include "cellularAutomatonModel.h"
+#include "cellularAutomatonModel_GA.h"
 #include "camera.h"
 
 class OpenGLApp {
@@ -35,7 +36,7 @@ private:
 	int mMainWindowId;
 	int mFrameStartTime;
 
-	CellularAutomatonModel mCAModel;
+	CellularAutomatonModel_GA mCAModel;
 	Camera mCamera;
 
 	/*

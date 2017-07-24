@@ -13,6 +13,7 @@ OpenGLApp::OpenGLApp() {
 	mFlgEditExits = false;
 	mFlgEditObstacles = false;
 	mFlgDragCamera = false;
+	mFrameStartTime = glutGet(GLUT_ELAPSED_TIME);
 }
 
 void OpenGLApp::initOpenGL(int argc, char *argv[]) {
@@ -32,8 +33,6 @@ void OpenGLApp::initOpenGL(int argc, char *argv[]) {
 	glDisable(GL_DEPTH_TEST);
 
 	createGUI();
-
-	mFrameStartTime = glutGet(GLUT_ELAPSED_TIME);
 }
 
 void OpenGLApp::runOpenGL() {

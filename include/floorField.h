@@ -31,13 +31,18 @@ using std::endl;
 
 class FloorField {
 public:
-	array2i mFloorFieldDim; // [0]: width, [1]: height
-	array2f mCellSize;      // [0]: width, [1]: height
-	arrayNd mCells;         // store the final floor field (use [y-coordinate * mFloorFieldDim[0] + x-coordinate] to access elements)
+	array2i mDim;                               // [0]: width, [1]: height
+	array2f mCellSize;                          // [0]: width, [1]: height
+	arrayNd mCells;                             // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
+	std::vector<arrayNd> mCellsForExits;        // store the final floor field with respect to each exit
+	std::vector<arrayNd> mCellsForExitsStatic;  // store the static floor field with respect to each exit
+	std::vector<arrayNd> mCellsForExitsDynamic; // store the dynamic floor field with respect to each exit
 	std::vector<std::vector<array2i>> mExits;
 	std::vector<array2i> mObstacles;
 	float mLambda;
 	float mCrowdAvoidance;
+	int mFlgEnableColormap;
+	int mFlgShowGrid;
 
 	void read( const char *fileName );
 	void print();
@@ -46,18 +51,11 @@ public:
 	boost::optional<int> isExisting_Obstacle( array2i coord );
 	void editExits( array2i coord );
 	void editObstacles( array2i coord );
-	void setFlgEnableColormap( int flg );
-	void setFlgShowGrid( int flg );
 	void save();
 	void draw();
 
 private:
-	std::vector<arrayNd> mCellsForExits;        // store the final floor field with respect to each exit
-	std::vector<arrayNd> mCellsForExitsStatic;  // store the static floor field with respect to each exit
-	std::vector<arrayNd> mCellsForExitsDynamic; // store the dynamic floor field with respect to each exit
-	arrayNi mCellStates;                        // use [y-coordinate * mFloorFieldDim[0] + x-coordinate] to access elements
-	int mFlgEnableColormap;
-	int mFlgShowGrid;
+	arrayNi mCellStates; // use [y-coordinate * mDim[0] + x-coordinate] to access elements
 
 	void removeCells( int i );
 	bool validateExitAdjacency( array2i coord, int &numNeighbors, bool &isRight, bool &isLeft, bool &isUp, bool &isDown );
