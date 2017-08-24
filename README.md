@@ -12,6 +12,8 @@
 
 2017/07/24: Add GA to optimize evacuation times.
 
+2017/08/21: Add a starter class for obstacle removal model.
+
 ***
 
-Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb)
+Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

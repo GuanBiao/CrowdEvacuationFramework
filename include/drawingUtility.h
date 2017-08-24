@@ -38,6 +38,16 @@ static void drawFilledCircle(float x, float y, float r, int numSlices) {
 	glPopMatrix();
 }
 
+static void drawLine(float x, float y, float t, array2f dir) {
+	glPushMatrix();
+	glTranslatef(x, y, 0.0);
+	glBegin(GL_LINES);
+	glVertex3f(0.0, 0.0, 0.0);
+	glVertex3f(t * dir[0], t * dir[1], 0.0);
+	glEnd();
+	glPopMatrix();
+}
+
 static array3f getColorJet(double v, double vmin, double vmax) {
 	array3f color; // [0]: r, [1]: g, [2]: b
 	double dv = vmax - vmin;

@@ -11,9 +11,15 @@ OpenGLApp::OpenGLApp() {
 	mFlgRunApp = false;
 	mFlgEditAgents = false;
 	mFlgEditExits = false;
-	mFlgEditObstacles = false;
+	mFlgEditMovableObstacles = false;
+	mFlgEditImmovableObstacles = false;
 	mFlgDragCamera = false;
 	mFrameStartTime = glutGet(GLUT_ELAPSED_TIME);
+	mTimer = 0;
+
+	ilInit();
+	iluInit();
+	ilutRenderer(ILUT_OPENGL);
 }
 
 void OpenGLApp::initOpenGL(int argc, char *argv[]) {
@@ -44,11 +50,14 @@ void OpenGLApp::display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (mOpenGLApp->mFlgRunApp) {
-		mOpenGLApp->mCAModel.update();
-		Sleep((1 - mOpenGLApp->mExecutionSpeed) * 1000); // control execution speed
+		// control execution speed
+		if ((++mOpenGLApp->mTimer) > (1 - mOpenGLApp->mExecutionSpeed) * 100) {
+			mOpenGLApp->mModel.update();
+			mOpenGLApp->mTimer = 0;
+		}
 	}
 
-	mOpenGLApp->mCAModel.draw();
+	mOpenGLApp->mModel.draw();
 
 	glutSwapBuffers();
 }
@@ -74,11 +83,13 @@ void OpenGLApp::mouse(int button, int state, int x, int y) {
 	case GLUT_LEFT_BUTTON:
 		if (state == GLUT_DOWN) {
 			if (mOpenGLApp->mFlgEditAgents)
-				mOpenGLApp->mCAModel.editAgents(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+				mOpenGLApp->mModel.editAgents(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
 			else if (mOpenGLApp->mFlgEditExits)
-				mOpenGLApp->mCAModel.editExits(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
-			else if (mOpenGLApp->mFlgEditObstacles)
-				mOpenGLApp->mCAModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+				mOpenGLApp->mModel.editExits(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+			else if (mOpenGLApp->mFlgEditMovableObstacles)
+				mOpenGLApp->mModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y), true);
+			else if (mOpenGLApp->mFlgEditImmovableObstacles)
+				mOpenGLApp->mModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y), false);
 		}
 		break;
 	case GLUT_RIGHT_BUTTON:
@@ -110,6 +121,23 @@ void OpenGLApp::passiveMotion(int x, int y) {
 	mOpenGLApp->mCamera.setMouseCoordinates(x, y);
 }
 
+void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
+	switch (key) {
+	case 27: // 'Esc' key
+		exit(1);
+		break;
+	case 'r': // take a screenshot
+		std::string filename = "./screenshot/timestep_" + std::to_string(mOpenGLApp->mModel.mTimesteps) + ".bmp";
+		if (CreateDirectory("screenshot", NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
+			ilutGLScreen();
+			ilSave(IL_BMP, filename.c_str());
+			cout << "Save successfully: " << filename << endl;
+		}
+		else
+			cout << "Failed to save: " << filename << endl;
+	}
+}
+
 void displayCallback() {
 	OpenGLApp::display();
 }
@@ -135,9 +163,5 @@ void passiveMotionCallback(int x, int y) { // called while no mouse buttons are 
 }
 
 void keyboardCallback(unsigned char key, int x, int y) {
-	switch (key) {
-	case 27: // 'Esc' key
-		exit(1);
-		break;
-	}
+	OpenGLApp::keyboardCallback(key, x, y);
 }

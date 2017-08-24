@@ -77,7 +77,6 @@ void CellularAutomatonModel_GA::draw() {
 	 */
 	for (int y = 0; y < mFloorField.mDim[1]; y++) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++) {
-			int index = y * mFloorField.mDim[0] + x;
 			glColor3f(1.0, 1.0, 1.0);
 
 			glBegin(GL_QUADS);
@@ -92,14 +91,17 @@ void CellularAutomatonModel_GA::draw() {
 	/*
 	 * Draw obstacles.
 	 */
-	glColor3f(0.3f, 0.3f, 0.3f);
-
 	for (const auto &obstacle : mFloorField.mObstacles) {
+		if (obstacle.mMovable)
+			glColor3f(0.8f, 0.8f, 0.8f);
+		else
+			glColor3f(0.3f, 0.3f, 0.3f);
+
 		glBegin(GL_QUADS);
-		glVertex3f(mFloorField.mCellSize[0] * obstacle[0], mFloorField.mCellSize[1] * obstacle[1], 0.0);
-		glVertex3f(mFloorField.mCellSize[0] * (obstacle[0] + 1), mFloorField.mCellSize[1] * obstacle[1], 0.0);
-		glVertex3f(mFloorField.mCellSize[0] * (obstacle[0] + 1), mFloorField.mCellSize[1] * (obstacle[1] + 1), 0.0);
-		glVertex3f(mFloorField.mCellSize[0] * obstacle[0], mFloorField.mCellSize[1] * (obstacle[1] + 1), 0.0);
+		glVertex3f(mFloorField.mCellSize[0] * obstacle.mPos[0], mFloorField.mCellSize[1] * obstacle.mPos[1], 0.0);
+		glVertex3f(mFloorField.mCellSize[0] * (obstacle.mPos[0] + 1), mFloorField.mCellSize[1] * obstacle.mPos[1], 0.0);
+		glVertex3f(mFloorField.mCellSize[0] * (obstacle.mPos[0] + 1), mFloorField.mCellSize[1] * (obstacle.mPos[1] + 1), 0.0);
+		glVertex3f(mFloorField.mCellSize[0] * obstacle.mPos[0], mFloorField.mCellSize[1] * (obstacle.mPos[1] + 1), 0.0);
 		glEnd();
 	}
 
@@ -164,19 +166,19 @@ void CellularAutomatonModel_GA::draw() {
 	 * Draw agents.
 	 */
 	for (size_t i = 0; i < mAgentManager.mAgents.size(); i++) {
-		array2i agent = mAgentManager.mAgents[i];
+		Agent agent = mAgentManager.mAgents[i];
 
 		if (mAgentManager.mFlgEnableColormap && !mHasConverged) // before GA converges
-			glColor3fv(mExitColors[mEvacPlan[mBlocks[agent[1] * mFloorField.mDim[0] + agent[0]]]].data());
+			glColor3fv(mExitColors[mEvacPlan[mBlocks[convertTo1D(agent.mPos)]]].data());
 		else if (mAgentManager.mFlgEnableColormap && mHasConverged) // after GA converges
 			glColor3fv(mExitColors[mAgentGoals[i]].data());
 		else
 			glColor3f(1.0, 1.0, 1.0);
-		drawFilledCircle(mAgentManager.mAgentSize * agent[0] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize * agent[1] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize / 2.5f, 10);
+		drawFilledCircle(mAgentManager.mAgentSize * agent.mPos[0] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize * agent.mPos[1] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize / 2.5f, 10);
 
 		glLineWidth(1.0);
 		glColor3f(0.0, 0.0, 0.0);
-		drawCircle(mAgentManager.mAgentSize * agent[0] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize * agent[1] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize / 2.5f, 10);
+		drawCircle(mAgentManager.mAgentSize * agent.mPos[0] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize * agent.mPos[1] + mAgentManager.mAgentSize / 2, mAgentManager.mAgentSize / 2.5f, 10);
 	}
 }
 
@@ -220,7 +222,7 @@ void CellularAutomatonModel_GA::read(const char *fileName) {
 void CellularAutomatonModel_GA::print() {
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++)
-			printf("%2d ", mBlocks[y * mFloorField.mDim[0] + x]);
+			printf("%2d ", mBlocks[convertTo1D(x, y)]);
 		printf("\n");
 	}
 }
@@ -272,7 +274,7 @@ void CellularAutomatonModel_GA::initPopulation() {
 		int count = 0;
 		for (int y = 0; y < mFloorField.mDim[1]; y++) {
 			for (int x = 0; x < mFloorField.mDim[0]; x++) {
-				if (i == mBlocks[y * mFloorField.mDim[0] + x]) {
+				if (i == mBlocks[convertTo1D(x, y)]) {
 					center_x += x;
 					center_y += y;
 					count++;
@@ -304,7 +306,7 @@ void CellularAutomatonModel_GA::initPopulation() {
 }
 
 void CellularAutomatonModel_GA::evaluatePopulation() {
-	std::vector<array2i> agents;
+	std::vector<Agent> agents;
 	arrayNb isAlive;
 	int numAliveAgents;
 	for (auto &chromosome : mPopulation) {
@@ -338,7 +340,7 @@ void CellularAutomatonModel_GA::evaluatePopulation() {
 void CellularAutomatonModel_GA::generateGoalsFromPlan(const arrayNi &plan) {
 	mAgentGoals.resize(mAgentManager.mAgents.size());
 	for (size_t i = 0; i < mAgentManager.mAgents.size(); i++)
-		mAgentGoals[i] = plan[mBlocks[mAgentManager.mAgents[i][1] * mFloorField.mDim[0] + mAgentManager.mAgents[i][0]]];
+		mAgentGoals[i] = plan[mBlocks[convertTo1D(mAgentManager.mAgents[i].mPos)]];
 }
 
 void CellularAutomatonModel_GA::GAStep() {
@@ -376,7 +378,7 @@ void CellularAutomatonModel_GA::GAStep() {
 		mLastBestFitness = best.mFitness;
 }
 
-void CellularAutomatonModel_GA::simStep_GA(std::vector<array2i> &agents, arrayNb &isAlive, int &numAliveAgents) {
+void CellularAutomatonModel_GA::simStep_GA(std::vector<Agent> &agents, arrayNb &isAlive, int &numAliveAgents) {
 	/*
 	 * Check whether the agent arrives at any exit.
 	 */
@@ -385,8 +387,8 @@ void CellularAutomatonModel_GA::simStep_GA(std::vector<array2i> &agents, arrayNb
 			continue;
 		for (const auto &exit : mFloorField.mExits) {
 			for (const auto &e : exit) {
-				if (agents[i] == e) {
-					mCellStates[agents[i][1] * mFloorField.mDim[0] + agents[i][0]] = TYPE_EMPTY;
+				if (agents[i].mPos == e) {
+					mCellStates[convertTo1D(agents[i].mPos)] = TYPE_EMPTY;
 					isAlive[i] = false;
 					numAliveAgents--;
 					mTotalTimesteps += mTimesteps;
@@ -422,12 +424,12 @@ void CellularAutomatonModel_GA::simStep() {
 	 * Check whether the agent arrives at any exit.
 	 */
 	arrayNi::iterator j = mAgentGoals.begin();
-	for (std::vector<array2i>::iterator i = mAgentManager.mAgents.begin(); i != mAgentManager.mAgents.end() && j != mAgentGoals.end();) {
+	for (std::vector<Agent>::iterator i = mAgentManager.mAgents.begin(); i != mAgentManager.mAgents.end() && j != mAgentGoals.end();) {
 		bool updated = false;
 		for (const auto &exit : mFloorField.mExits) {
 			for (const auto &e : exit) {
-				if ((*i) == e) {
-					mCellStates[(*i)[1] * mFloorField.mDim[0] + (*i)[0]] = TYPE_EMPTY;
+				if ((*i).mPos == e) {
+					mCellStates[convertTo1D((*i).mPos)] = TYPE_EMPTY;
 					i = mAgentManager.mAgents.erase(i);
 					j = mAgentGoals.erase(j);
 					mTotalTimesteps += mTimesteps;
@@ -463,9 +465,9 @@ void CellularAutomatonModel_GA::simStep() {
 	}
 }
 
-void CellularAutomatonModel_GA::moveAgents(array2i &agent, int goal, std::uniform_real_distribution<> &distribution) {
+void CellularAutomatonModel_GA::moveAgents(Agent &agent, int goal, std::uniform_real_distribution<> &distribution) {
 	array2i dim = mFloorField.mDim;
-	int curIndex = agent[1] * dim[0] + agent[0], adjIndex;
+	int curIndex = convertTo1D(agent.mPos), adjIndex;
 
 	/*
 	 * Find available cells with the lowest cell value.
@@ -475,107 +477,107 @@ void CellularAutomatonModel_GA::moveAgents(array2i &agent, int goal, std::unifor
 	possibleCoords.reserve(8);
 
 	// right cell
-	adjIndex = agent[1] * dim[0] + (agent[0] + 1);
-	if (agent[0] + 1 < dim[0] && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] + 1, agent.mPos[1]);
+	if (agent.mPos[0] + 1 < dim[0] && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] });
 		}
 	}
 
 	// left cell
-	adjIndex = agent[1] * dim[0] + (agent[0] - 1);
-	if (agent[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] - 1, agent.mPos[1]);
+	if (agent.mPos[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] });
 		}
 	}
 
 	// up cell
-	adjIndex = (agent[1] + 1) * dim[0] + agent[0];
-	if (agent[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0], agent.mPos[1] + 1);
+	if (agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0], agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0], agent.mPos[1] + 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0], agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0], agent.mPos[1] + 1 });
 		}
 	}
 
 	// down cell
-	adjIndex = (agent[1] - 1) * dim[0] + agent[0];
-	if (agent[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0], agent.mPos[1] - 1);
+	if (agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0], agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0], agent.mPos[1] - 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0], agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0], agent.mPos[1] - 1 });
 		}
 	}
 
 	// upper right cell
-	adjIndex = (agent[1] + 1) * dim[0] + (agent[0] + 1);
-	if (agent[0] + 1 < dim[0] && agent[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] + 1, agent.mPos[1] + 1);
+	if (agent.mPos[0] + 1 < dim[0] && agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] + 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] + 1 });
 		}
 	}
 
 	// lower left cell
-	adjIndex = (agent[1] - 1) * dim[0] + (agent[0] - 1);
-	if (agent[0] - 1 >= 0 && agent[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] - 1, agent.mPos[1] - 1);
+	if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] - 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] - 1 });
 		}
 	}
 
 	// lower right cell
-	adjIndex = (agent[1] - 1) * dim[0] + (agent[0] + 1);
-	if (agent[0] + 1 < dim[0] && agent[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] + 1, agent.mPos[1] - 1);
+	if (agent.mPos[0] + 1 < dim[0] && agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] - 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] + 1, agent[1] - 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] + 1, agent.mPos[1] - 1 });
 		}
 	}
 
 	// upper left cell
-	adjIndex = (agent[1] + 1) * dim[0] + (agent[0] - 1);
-	if (agent[0] - 1 >= 0 && agent[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+	adjIndex = convertTo1D(agent.mPos[0] - 1, agent.mPos[1] + 1);
+	if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
 		if (lowestCellValue == mFloorField.mCellsForExitsStatic[goal][adjIndex] && mFloorField.mCellsForExitsStatic[goal][curIndex] != mFloorField.mCellsForExitsStatic[goal][adjIndex])
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] + 1 });
 		else if (lowestCellValue > mFloorField.mCellsForExitsStatic[goal][adjIndex]) {
 			lowestCellValue = mFloorField.mCellsForExitsStatic[goal][adjIndex];
 			possibleCoords.clear();
-			possibleCoords.push_back(array2i{ agent[0] - 1, agent[1] + 1 });
+			possibleCoords.push_back(array2i{ agent.mPos[0] - 1, agent.mPos[1] + 1 });
 		}
 	}
 
 	/*
-	 * Decide the cell where the agent will move.
+	 * Decide the cell where the agent.mPos will move.
 	 */
 	if (possibleCoords.size() != 0) {
 		mCellStates[curIndex] = TYPE_EMPTY;
-		agent = possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
-		mCellStates[agent[1] * dim[0] + agent[0]] = TYPE_AGENT;
+		agent.mPos = possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
+		mCellStates[convertTo1D(agent.mPos)] = TYPE_AGENT;
 	}
 }

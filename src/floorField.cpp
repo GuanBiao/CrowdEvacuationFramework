@@ -24,13 +24,25 @@ void FloorField::read(const char *fileName) {
 					ifs >> mExits[i][j][0] >> mExits[i][j][1];
 			}
 		}
-		else if (key.compare("OBSTACLE") == 0) {
+		else if (key.compare("MOVABLE") == 0) {
 			int numObstacles;
 			ifs >> numObstacles;
-			mObstacles.resize(numObstacles);
 
-			for (int i = 0; i < numObstacles; i++)
-				ifs >> mObstacles[i][0] >> mObstacles[i][1];
+			int x, y;
+			for (int i = 0; i < numObstacles; i++) {
+				ifs >> x >> y;
+				mObstacles.push_back(Obstacle(x, y, true));
+			}
+		}
+		else if (key.compare("IMMOVABLE") == 0) {
+			int numObstacles;
+			ifs >> numObstacles;
+
+			int x, y;
+			for (int i = 0; i < numObstacles; i++) {
+				ifs >> x >> y;
+				mObstacles.push_back(Obstacle(x, y, false));
+			}
 		}
 		else if (key.compare("LAMBDA") == 0)
 			ifs >> mLambda;
@@ -64,19 +76,19 @@ void FloorField::print() {
 	cout << "Floor field:" << endl;
 	for (int y = mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mDim[0]; x++)
-			printf("%6.1f ", mCells[y * mDim[0] + x]);
+			printf("%6.1f ", mCells[convertTo1D(x, y)]);
 		printf("\n");
 	}
 
 	cout << "Cell States:" << endl;
 	for (int y = mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mDim[0]; x++)
-			printf("%3d ", mCellStates[y * mDim[0] + x]);
+			printf("%3d ", mCellStates[convertTo1D(x, y)]);
 		printf("\n");
 	}
 }
 
-void FloorField::update(const std::vector<array2i> &agents, bool toUpdateStatic) {
+void FloorField::update(const std::vector<Agent> &agents, bool toUpdateStatic) {
 	/*
 	 * Compute the static floor field and the dynamic floor field with respect to each exit, if needed.
 	 */
@@ -108,8 +120,8 @@ boost::optional<array2i> FloorField::isExisting_Exit(array2i coord) {
 	return boost::none;
 }
 
-boost::optional<int> FloorField::isExisting_Obstacle(array2i coord) {
-	std::vector<array2i>::iterator i = std::find(mObstacles.begin(), mObstacles.end(), coord);
+boost::optional<int> FloorField::isExisting_Obstacle(array2i coord, bool movable) {
+	std::vector<Obstacle>::iterator i = std::find_if(mObstacles.begin(), mObstacles.end(), [=](Obstacle &i) { return coord == i.mPos; });
 	if (i != mObstacles.end())
 		return i - mObstacles.begin();
 	return boost::none;
@@ -158,13 +170,13 @@ void FloorField::editExits(array2i coord) {
 			break;
 		case 1:
 			if (isRight)
-				mExits[mCellStates[coord[1] * mDim[0] + (coord[0] + 1)]].push_back(coord);
+				mExits[mCellStates[convertTo1D(coord[0] + 1, coord[1])]].push_back(coord);
 			else if (isLeft)
-				mExits[mCellStates[coord[1] * mDim[0] + (coord[0] - 1)]].push_back(coord);
+				mExits[mCellStates[convertTo1D(coord[0] - 1, coord[1])]].push_back(coord);
 			else if (isUp)
-				mExits[mCellStates[(coord[1] + 1) * mDim[0] + coord[0]]].push_back(coord);
+				mExits[mCellStates[convertTo1D(coord[0], coord[1] + 1)]].push_back(coord);
 			else
-				mExits[mCellStates[(coord[1] - 1) * mDim[0] + coord[0]]].push_back(coord);
+				mExits[mCellStates[convertTo1D(coord[0], coord[1] - 1)]].push_back(coord);
 			cout << "An exit is changed at: " << coord << endl;
 			break;
 		case 2:
@@ -181,14 +193,14 @@ void FloorField::editExits(array2i coord) {
 	setCellStates();
 }
 
-void FloorField::editObstacles(array2i coord) {
-	if (boost::optional<int> i = isExisting_Obstacle(coord)) {
+void FloorField::editObstacles(array2i coord, bool movable) {
+	if (boost::optional<int> i = isExisting_Obstacle(coord, movable)) {
 		mObstacles.erase(mObstacles.begin() + (*i));
-		cout << "An obstacle is removed at: " << coord << endl;
+		cout << (movable ? "A movable obstacle " : "An immovable obstacle ") << "is removed at: " << coord << endl;
 	}
 	else {
-		mObstacles.push_back(coord);
-		cout << "An obstacle is added at: " << coord << endl;
+		mObstacles.push_back(Obstacle(coord, movable));
+		cout << (movable ? "A movable obstacle " : "An immovable obstacle ") << "is added at: " << coord << endl;
 	}
 
 	setCellStates();
@@ -215,9 +227,17 @@ void FloorField::save() {
 			ofs << "                " << e[0] << " " << e[1] << endl;
 	}
 
-	ofs << "OBSTACLE        " << mObstacles.size() << endl;
-	for (const auto &obstacle : mObstacles)
-		ofs << "                " << obstacle[0] << " " << obstacle[1] << endl;
+	ofs << "MOVABLE         " << std::count_if(mObstacles.begin(), mObstacles.end(), [=](Obstacle &i) { return i.mMovable == true; }) << endl;
+	for (const auto &obstacle : mObstacles) {
+		if (obstacle.mMovable)
+			ofs << "                " << obstacle.mPos[0] << " " << obstacle.mPos[1] << endl;
+	}
+
+	ofs << "IMMOVABLE       " << std::count_if(mObstacles.begin(), mObstacles.end(), [=](Obstacle &i) { return i.mMovable == false; }) << endl;
+	for (const auto &obstacle : mObstacles) {
+		if (!obstacle.mMovable)
+			ofs << "                " << obstacle.mPos[0] << " " << obstacle.mPos[1] << endl;
+	}
 
 	ofs << "LAMBDA          " << mLambda << endl;
 
@@ -237,10 +257,10 @@ void FloorField::draw() {
 		double vmax = *std::max_element(mCells.begin(), mCells.end(), comp);
 		for (int y = 0; y < mDim[1]; y++) {
 			for (int x = 0; x < mDim[0]; x++) {
-				if (mCells[y * mDim[0] + x] == INIT_WEIGHT)
+				if (mCells[convertTo1D(x, y)] == INIT_WEIGHT)
 					glColor3f(1.0, 1.0, 1.0);
 				else {
-					array3f color = getColorJet(mCells[y * mDim[0] + x], EXIT_WEIGHT, vmax);
+					array3f color = getColorJet(mCells[convertTo1D(x, y)], EXIT_WEIGHT, vmax);
 					glColor3fv(color.data());
 				}
 				glBegin(GL_QUADS);
@@ -256,14 +276,17 @@ void FloorField::draw() {
 	/*
 	 * Draw obstacles.
 	 */
-	glColor3f(0.3f, 0.3f, 0.3f);
-
 	for (const auto &obstacle : mObstacles) {
+		if (obstacle.mMovable)
+			glColor3f(0.8f, 0.8f, 0.8f);
+		else
+			glColor3f(0.3f, 0.3f, 0.3f);
+
 		glBegin(GL_QUADS);
-		glVertex3f(mCellSize[0] * obstacle[0], mCellSize[1] * obstacle[1], 0.0);
-		glVertex3f(mCellSize[0] * (obstacle[0] + 1), mCellSize[1] * obstacle[1], 0.0);
-		glVertex3f(mCellSize[0] * (obstacle[0] + 1), mCellSize[1] * (obstacle[1] + 1), 0.0);
-		glVertex3f(mCellSize[0] * obstacle[0], mCellSize[1] * (obstacle[1] + 1), 0.0);
+		glVertex3f(mCellSize[0] * obstacle.mPos[0], mCellSize[1] * obstacle.mPos[1], 0.0);
+		glVertex3f(mCellSize[0] * (obstacle.mPos[0] + 1), mCellSize[1] * obstacle.mPos[1], 0.0);
+		glVertex3f(mCellSize[0] * (obstacle.mPos[0] + 1), mCellSize[1] * (obstacle.mPos[1] + 1), 0.0);
+		glVertex3f(mCellSize[0] * obstacle.mPos[0], mCellSize[1] * (obstacle.mPos[1] + 1), 0.0);
 		glEnd();
 	}
 
@@ -320,48 +343,57 @@ void FloorField::removeCells(int i) {
 
 bool FloorField::validateExitAdjacency(array2i coord, int &numNeighbors, bool &isRight, bool &isLeft, bool &isUp, bool &isDown) {
 	bool isUpperRight, isLowerLeft, isLowerRight, isUpperLeft;
+	int index;
 
 	numNeighbors = 0;
 	isRight = isLeft = isUp = isDown = isUpperRight = isLowerLeft = isLowerRight = isUpperLeft = false;
 
 	// right cell
-	if (coord[0] + 1 < mDim[0] && !(mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE)) {
+	index = convertTo1D(coord[0] + 1, coord[1]);
+	if (coord[0] + 1 < mDim[0] && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)) {
 		isRight = true;
 		numNeighbors++;
 	}
 
 	// left cell
-	if (coord[0] - 1 >= 0 && !(mCellStates[coord[1] * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE)) {
+	index = convertTo1D(coord[0] - 1, coord[1]);
+	if (coord[0] - 1 >= 0 && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)) {
 		isLeft = true;
 		numNeighbors++;
 	}
 
 	// up cell
-	if (coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + coord[0]] == TYPE_OBSTACLE)) {
+	index = convertTo1D(coord[0], coord[1] + 1);
+	if (coord[1] + 1 < mDim[1] && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)) {
 		isUp = true;
 		numNeighbors++;
 	}
 
 	// down cell
-	if (coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] == TYPE_OBSTACLE)) {
+	index = convertTo1D(coord[0], coord[1] - 1);
+	if (coord[1] - 1 >= 0 && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)) {
 		isDown = true;
 		numNeighbors++;
 	}
 
 	// upper right cell
-	if (coord[0] + 1 < mDim[0] && coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
+	index = convertTo1D(coord[0] + 1, coord[1] + 1);
+	if (coord[0] + 1 < mDim[0] && coord[1] + 1 < mDim[1] && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE))
 		isUpperRight = true;
 
 	// lower left cell
-	if (coord[0] - 1 >= 0 && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
+	index = convertTo1D(coord[0] - 1, coord[1] - 1);
+	if (coord[0] - 1 >= 0 && coord[1] - 1 >= 0 && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE))
 		isLowerLeft = true;
 
 	// lower right cell
-	if (coord[0] + 1 < mDim[0] && coord[1] - 1 >= 0 && !(mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] + 1)] == TYPE_EMPTY || mCellStates[(coord[1] - 1) * mDim[0] + (coord[0] + 1)] == TYPE_OBSTACLE))
+	index = convertTo1D(coord[0] + 1, coord[1] - 1);
+	if (coord[0] + 1 < mDim[0] && coord[1] - 1 >= 0 && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE))
 		isLowerRight = true;
 
 	// upper left cell
-	if (coord[0] - 1 >= 0 && coord[1] + 1 < mDim[1] && !(mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] - 1)] == TYPE_EMPTY || mCellStates[(coord[1] + 1) * mDim[0] + (coord[0] - 1)] == TYPE_OBSTACLE))
+	index = convertTo1D(coord[0] - 1, coord[1] + 1);
+	if (coord[0] - 1 >= 0 && coord[1] + 1 < mDim[1] && !(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE))
 		isUpperLeft = true;
 
 	switch (numNeighbors) {
@@ -397,21 +429,23 @@ void FloorField::combineExits(array2i coord, int direction) {
 	 * Handle the left/up exit.
 	 */
 	if (direction == DIR_HORIZONTAL) {
-		exitIndices = array2i{ mCellStates[coord[1] * mDim[0] + (coord[0] - 1)], mCellStates[coord[1] * mDim[0] + (coord[0] + 1)] };
+		exitIndices = array2i{ mCellStates[convertTo1D(coord[0] - 1, coord[0])], mCellStates[convertTo1D(coord[0] + 1, coord[0])] };
 
 		mExits[exitIndices[0]].push_back(coord);
 		for (int i = 1; coord[0] + i < mDim[0]; i++) {
-			if (mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
+			int index = convertTo1D(coord[0] + i, coord[1]);
+			if (mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)
 				break;
 			mExits[exitIndices[0]].push_back(array2i{ coord[0] + i, coord[1] });
 		}
 	}
 	else {
-		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mDim[0] + coord[0]], mCellStates[(coord[1] - 1) * mDim[0] + coord[0]] };
+		exitIndices = array2i{ mCellStates[convertTo1D(coord[0], coord[1] + 1)], mCellStates[convertTo1D(coord[0], coord[1] - 1)] };
 
 		mExits[exitIndices[0]].push_back(coord);
 		for (int i = 1; coord[1] - i >= 0; i++) {
-			if (mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_OBSTACLE)
+			int index = convertTo1D(coord[0], coord[1] - i);
+			if (mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)
 				break;
 			mExits[exitIndices[0]].push_back(array2i{ coord[0], coord[1] - i });
 		}
@@ -432,19 +466,21 @@ void FloorField::divideExit(array2i coord, int direction) {
 	 * Handle the right/down exit.
 	 */
 	if (direction == DIR_HORIZONTAL) {
-		exitIndices = array2i{ mCellStates[coord[1] * mDim[0] + (coord[0] - 1)], (int)mExits.size() };
+		exitIndices = array2i{ mCellStates[convertTo1D(coord[0] - 1, coord[1])], (int)mExits.size() };
 
 		for (int i = 1; coord[0] + i < mDim[0]; i++) {
-			if (mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_EMPTY || mCellStates[coord[1] * mDim[0] + (coord[0] + i)] == TYPE_OBSTACLE)
+			int index = convertTo1D(coord[0] + i, coord[1]);
+			if (mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)
 				break;
 			tmpExit.push_back(array2i{ coord[0] + i, coord[1] });
 		}
 	}
 	else {
-		exitIndices = array2i{ mCellStates[(coord[1] + 1) * mDim[0] + coord[0]], (int)mExits.size() };
+		exitIndices = array2i{ mCellStates[convertTo1D(coord[0], coord[1] + 1)], (int)mExits.size() };
 
 		for (int i = 1; coord[1] - i >= 0; i++) {
-			if (mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_EMPTY || mCellStates[(coord[1] - i) * mDim[0] + coord[0]] == TYPE_OBSTACLE)
+			int index = convertTo1D(coord[0], coord[1] - i);
+			if (mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_MOVABLE_OBSTACLE || mCellStates[index] == TYPE_IMMOVABLE_OBSTACLE)
 				break;
 			tmpExit.push_back(array2i{ coord[0], coord[1] - i });
 		}
@@ -477,15 +513,15 @@ void FloorField::updateCellsStatic() {
 		// initialize the static floor field
 		std::fill(mCellsForExitsStatic[i].begin(), mCellsForExitsStatic[i].end(), INIT_WEIGHT);
 		for (const auto &e : mExits[i])
-			mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = EXIT_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(e)] = EXIT_WEIGHT;
 		for (size_t j = 0; j < mExits.size(); j++) {
 			if (i != j) {
 				for (const auto &e : mExits[j])
-					mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = OBSTACLE_WEIGHT; // view other exits as obstacles
+					mCellsForExitsStatic[i][convertTo1D(e)] = OBSTACLE_WEIGHT; // view other exits as obstacles
 			}
 		}
 		for (const auto &obstacle : mObstacles)
-			mCellsForExitsStatic[i][obstacle[1] * mDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(obstacle.mPos)] = OBSTACLE_WEIGHT;
 
 		// compute the static weight
 		for (const auto &e : mExits[i])
@@ -493,14 +529,14 @@ void FloorField::updateCellsStatic() {
 	}
 }
 
-void FloorField::updateCellsDynamic(const std::vector<array2i> &agents) {
+void FloorField::updateCellsDynamic(const std::vector<Agent> &agents) {
 	for (size_t i = 0; i < mExits.size(); i++) {
 		double max = 0.0;
 		for (size_t j = 0; j < agents.size(); j++)
-			max = max < mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] : max;
+			max = max < mCellsForExitsStatic[i][convertTo1D(agents[j].mPos)] ? mCellsForExitsStatic[i][convertTo1D(agents[j].mPos)] : max;
 
 		for (int j = 0; j < mDim[0] * mDim[1]; j++) {
-			if (mCellStates[j] == TYPE_OBSTACLE) {
+			if (mCellStates[j] == TYPE_MOVABLE_OBSTACLE || mCellStates[j] == TYPE_IMMOVABLE_OBSTACLE) {
 				mCellsForExitsDynamic[i][j] = 0.0;
 				continue;
 			}
@@ -510,7 +546,7 @@ void FloorField::updateCellsDynamic(const std::vector<array2i> &agents) {
 				P = agents.size();
 			else {
 				for (size_t k = 0; k < agents.size(); k++) {
-					int index = agents[k][1] * mDim[0] + agents[k][0];
+					int index = convertTo1D(agents[k].mPos);
 					if (mCellsForExitsStatic[i][j] > mCellsForExitsStatic[i][index])
 						P++;
 					else if (mCellsForExitsStatic[i][j] == mCellsForExitsStatic[i][index])
@@ -528,11 +564,11 @@ void FloorField::evaluateCells(int i, array2i root) {
 
 	while (!toDoList.empty()) {
 		array2i cell = toDoList.front();
-		int curIndex = cell[1] * mDim[0] + cell[0], adjIndex;
+		int curIndex = convertTo1D(cell), adjIndex;
 		toDoList.pop();
 
 		// right cell
-		adjIndex = cell[1] * mDim[0] + (cell[0] + 1);
+		adjIndex = convertTo1D(cell[0] + 1, cell[1]);
 		if (cell[0] + 1 < mDim[0] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
@@ -541,7 +577,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// left cell
-		adjIndex = cell[1] * mDim[0] + (cell[0] - 1);
+		adjIndex = convertTo1D(cell[0] - 1, cell[1]);
 		if (cell[0] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
@@ -550,7 +586,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// up cell
-		adjIndex = (cell[1] + 1) * mDim[0] + cell[0];
+		adjIndex = convertTo1D(cell[0], cell[1] + 1);
 		if (cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
@@ -559,7 +595,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// down cell
-		adjIndex = (cell[1] - 1) * mDim[0] + cell[0];
+		adjIndex = convertTo1D(cell[0], cell[1] - 1);
 		if (cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.0) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.0;
@@ -568,7 +604,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// upper right cell
-		adjIndex = (cell[1] + 1) * mDim[0] + (cell[0] + 1);
+		adjIndex = convertTo1D(cell[0] + 1, cell[1] + 1);
 		if (cell[0] + 1 < mDim[0] && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
@@ -577,7 +613,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// lower left cell
-		adjIndex = (cell[1] - 1) * mDim[0] + (cell[0] - 1);
+		adjIndex = convertTo1D(cell[0] - 1, cell[1] - 1);
 		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
@@ -586,7 +622,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// lower right cell
-		adjIndex = (cell[1] - 1) * mDim[0] + (cell[0] + 1);
+		adjIndex = convertTo1D(cell[0] + 1, cell[1] - 1);
 		if (cell[0] + 1 < mDim[0] && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
@@ -595,7 +631,7 @@ void FloorField::evaluateCells(int i, array2i root) {
 		}
 
 		// upper left cell
-		adjIndex = (cell[1] + 1) * mDim[0] + (cell[0] - 1);
+		adjIndex = convertTo1D(cell[0] - 1, cell[1] + 1);
 		if (cell[0] - 1 >= 0 && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
 			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
 				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
@@ -612,10 +648,14 @@ void FloorField::setCellStates() {
 	// cell occupied by an exit
 	for (size_t i = 0; i < mExits.size(); i++) {
 		for (size_t j = 0; j < mExits[i].size(); j++)
-			mCellStates[mExits[i][j][1] * mDim[0] + mExits[i][j][0]] = i; // record which exit the cell is occupied by
+			mCellStates[convertTo1D(mExits[i][j])] = i; // record which exit the cell is occupied by
 	}
 
 	// cell occupied by an obstacle
-	for (const auto &obstacle : mObstacles)
-		mCellStates[obstacle[1] * mDim[0] + obstacle[0]] = TYPE_OBSTACLE;
+	for (const auto &obstacle : mObstacles) {
+		if (obstacle.mMovable)
+			mCellStates[convertTo1D(obstacle.mPos)] = TYPE_MOVABLE_OBSTACLE;
+		else
+			mCellStates[convertTo1D(obstacle.mPos)] = TYPE_IMMOVABLE_OBSTACLE;
+	}
 }

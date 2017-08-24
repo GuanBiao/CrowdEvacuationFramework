@@ -1,12 +1,15 @@
 #ifndef __OPENGLAPP_H__
 #define __OPENGLAPP_H__
 
-#include <Windows.h>
 #include "GL/freeglut.h"
 #include "GL/glui.h"
+#include "IL/il.h"
+#include "IL/ilu.h"
+#include "IL/ilut.h"
 
 #include "cellularAutomatonModel.h"
 #include "cellularAutomatonModel_GA.h"
+#include "obstacleRemoval.h"
 #include "camera.h"
 
 class OpenGLApp {
@@ -25,18 +28,21 @@ public:
 	static void mouse( int button, int state, int x, int y );
 	static void motion( int x, int y );
 	static void passiveMotion( int x, int y );
+	static void keyboardCallback( unsigned char key, int x, int y );
 
 private:
 	static OpenGLApp *mOpenGLApp;
 	bool mFlgRunApp;
 	bool mFlgEditAgents;
 	bool mFlgEditExits;
-	bool mFlgEditObstacles;
+	bool mFlgEditMovableObstacles;
+	bool mFlgEditImmovableObstacles;
 	bool mFlgDragCamera;
 	int mMainWindowId;
 	int mFrameStartTime;
+	int mTimer;
 
-	CellularAutomatonModel_GA mCAModel;
+	ObstacleRemovalModel mModel;
 	Camera mCamera;
 
 	/*

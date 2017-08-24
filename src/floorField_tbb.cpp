@@ -11,13 +11,13 @@ struct UpdateCellsDynamic {
 	const std::vector<arrayNd> *mCellsForExitsStatic;
 	std::vector<arrayNd> *mCellsForExitsDynamic;
 	const arrayNi *mCellStates;
-	const std::vector<array2i> *agents;
+	const std::vector<Agent> *agents;
 	const std::vector<double> *maxs;
 
 	void operator() (const tbb::blocked_range2d<size_t, int> &r) const {
 		for (size_t i = r.rows().begin(); i < r.rows().end(); i++) {
 			for (int j = r.cols().begin(); j < r.cols().end(); j++) {
-				if ((*mCellStates)[j] == TYPE_OBSTACLE) {
+				if ((*mCellStates)[j] == TYPE_MOVABLE_OBSTACLE || (*mCellStates)[j] == TYPE_IMMOVABLE_OBSTACLE) {
 					(*mCellsForExitsDynamic)[i][j] = 0.0;
 					continue;
 				}
@@ -27,7 +27,7 @@ struct UpdateCellsDynamic {
 					P = (*agents).size();
 				else {
 					for (size_t k = 0; k < (*agents).size(); k++) {
-						int index = (*agents)[k][1] * mDim[0] + (*agents)[k][0];
+						int index = (*agents)[k].mPos[1] * mDim[0] + (*agents)[k].mPos[0];
 						if ((*mCellsForExitsStatic)[i][j] > (*mCellsForExitsStatic)[i][index])
 							P++;
 						else if ((*mCellsForExitsStatic)[i][j] == (*mCellsForExitsStatic)[i][index])
@@ -47,15 +47,15 @@ void FloorField::updateCellsStatic_tbb() {
 		// initialize the static floor field
 		std::fill(mCellsForExitsStatic[i].begin(), mCellsForExitsStatic[i].end(), INIT_WEIGHT);
 		for (const auto &e : mExits[i])
-			mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = EXIT_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(e)] = EXIT_WEIGHT;
 		for (size_t j = 0; j < mExits.size(); j++) {
 			if (i != j) {
 				for (const auto &e : mExits[j])
-					mCellsForExitsStatic[i][e[1] * mDim[0] + e[0]] = OBSTACLE_WEIGHT; // view other exits as obstacles
+					mCellsForExitsStatic[i][convertTo1D(e)] = OBSTACLE_WEIGHT; // view other exits as obstacles
 			}
 		}
 		for (const auto &obstacle : mObstacles)
-			mCellsForExitsStatic[i][obstacle[1] * mDim[0] + obstacle[0]] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(obstacle.mPos)] = OBSTACLE_WEIGHT;
 
 		// compute the static weight
 		for (const auto &e : mExits[i])
@@ -65,12 +65,12 @@ void FloorField::updateCellsStatic_tbb() {
 	group.wait(); // wait for all tasks to complete
 }
 
-void FloorField::updateCellsDynamic_tbb(const std::vector<array2i> &agents) {
+void FloorField::updateCellsDynamic_tbb(const std::vector<Agent> &agents) {
 	std::vector<double> maxs(mExits.size());
 	for (size_t i = 0; i < mExits.size(); i++) {
 		double max = 0.0;
 		for (size_t j = 0; j < agents.size(); j++)
-			max = max < mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] ? mCellsForExitsStatic[i][agents[j][1] * mDim[0] + agents[j][0]] : max;
+			max = max < mCellsForExitsStatic[i][convertTo1D(agents[j].mPos)] ? mCellsForExitsStatic[i][convertTo1D(agents[j].mPos)] : max;
 		maxs[i] = max;
 	}
 

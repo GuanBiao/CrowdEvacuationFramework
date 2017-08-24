@@ -17,7 +17,7 @@ bool AgentManager::read(const char *fileName) {
 				int x, y;
 				for (int i = 0; i < numAgents; i++) {
 					ifs >> x >> y;
-					mAgents.push_back(array2i{ x, y });
+					mAgents.push_back(Agent(x, y));
 				}
 			}
 		}
@@ -35,7 +35,7 @@ bool AgentManager::read(const char *fileName) {
 }
 
 boost::optional<int> AgentManager::isExisting(array2i coord) {
-	std::vector<array2i>::iterator i = std::find(mAgents.begin(), mAgents.end(), coord);
+	std::vector<Agent>::iterator i = std::find_if(mAgents.begin(), mAgents.end(), [=](Agent &i) { return coord == i.mPos; });
 	if (i != mAgents.end())
 		return i - mAgents.begin();
 	return boost::none;
@@ -47,7 +47,7 @@ void AgentManager::edit(array2i coord) {
 		cout << "An agent is removed at: " << coord << endl;
 	}
 	else {
-		mAgents.push_back(coord);
+		mAgents.push_back(Agent(coord));
 		cout << "An agent is added at: " << coord << endl;
 	}
 }
@@ -65,7 +65,7 @@ void AgentManager::save() {
 	ofs << "AGENT      " << mAgents.size() << endl;
 	ofs << "           " << true << endl; // indicate agent locations are provided as follows
 	for (const auto &agent : mAgents)
-		ofs << "           " << agent[0] << " " << agent[1] << endl;
+		ofs << "           " << agent.mPos[0] << " " << agent.mPos[1] << endl;
 
 	ofs << "AGENT_SIZE " << mAgentSize << endl;
 
@@ -79,10 +79,10 @@ void AgentManager::save() {
 void AgentManager::draw() {
 	for (const auto &agent : mAgents) {
 		glColor3f(1.0, 1.0, 1.0);
-		drawFilledCircle(mAgentSize * agent[0] + mAgentSize / 2, mAgentSize * agent[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
+		drawFilledCircle(mAgentSize * agent.mPos[0] + mAgentSize / 2, mAgentSize * agent.mPos[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
 
 		glLineWidth(1.0);
 		glColor3f(0.0, 0.0, 0.0);
-		drawCircle(mAgentSize * agent[0] + mAgentSize / 2, mAgentSize * agent[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
+		drawCircle(mAgentSize * agent.mPos[0] + mAgentSize / 2, mAgentSize * agent.mPos[1] + mAgentSize / 2, mAgentSize / 2.5f, 10);
 	}
 }

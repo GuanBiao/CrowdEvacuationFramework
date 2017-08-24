@@ -34,9 +34,9 @@ private:
 	void evaluatePopulation();
 	void generateGoalsFromPlan( const arrayNi &plan );
 	void GAStep();
-	void simStep_GA( std::vector<array2i> &agents, arrayNb &isAlive, int &numAliveAgents );
+	void simStep_GA( std::vector<Agent> &agents, arrayNb &isAlive, int &numAliveAgents );
 	void simStep();
-	void moveAgents( array2i &agent, int goal, std::uniform_real_distribution<> &distribution );
+	void moveAgents( Agent &agent, int goal, std::uniform_real_distribution<> &distribution );
 };
 
 #endif
