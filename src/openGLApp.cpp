@@ -5,7 +5,7 @@ OpenGLApp *OpenGLApp::mOpenGLApp = 0;
 OpenGLApp::OpenGLApp() {
 	mFlgEnableColormap = false;
 	mFlgShowGrid = false;
-	mExecutionSpeed = 1.0;
+	mExecutionSpeed = 1.f;
 
 	mOpenGLApp = this;
 	mFlgRunApp = false;
@@ -46,12 +46,12 @@ void OpenGLApp::runOpenGL() {
 }
 
 void OpenGLApp::display() {
-	glClearColor(1.0, 1.0, 1.0, 1.0);
+	glClearColor(1.f, 1.f, 1.f, 1.f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	if (mOpenGLApp->mFlgRunApp) {
 		// control execution speed
-		if ((++mOpenGLApp->mTimer) > (1 - mOpenGLApp->mExecutionSpeed) * 100) {
+		if ((++mOpenGLApp->mTimer) > (1.f - mOpenGLApp->mExecutionSpeed) * 100.f) {
 			mOpenGLApp->mModel.update();
 			mOpenGLApp->mTimer = 0;
 		}
@@ -83,13 +83,13 @@ void OpenGLApp::mouse(int button, int state, int x, int y) {
 	case GLUT_LEFT_BUTTON:
 		if (state == GLUT_DOWN) {
 			if (mOpenGLApp->mFlgEditAgents)
-				mOpenGLApp->mModel.editAgents(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+				mOpenGLApp->mModel.editAgent(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
 			else if (mOpenGLApp->mFlgEditExits)
-				mOpenGLApp->mModel.editExits(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
+				mOpenGLApp->mModel.editExit(mOpenGLApp->mCamera.getWorldCoordinates(x, y));
 			else if (mOpenGLApp->mFlgEditMovableObstacles)
-				mOpenGLApp->mModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y), true);
+				mOpenGLApp->mModel.editObstacle(mOpenGLApp->mCamera.getWorldCoordinates(x, y), true);
 			else if (mOpenGLApp->mFlgEditImmovableObstacles)
-				mOpenGLApp->mModel.editObstacles(mOpenGLApp->mCamera.getWorldCoordinates(x, y), false);
+				mOpenGLApp->mModel.editObstacle(mOpenGLApp->mCamera.getWorldCoordinates(x, y), false);
 		}
 		break;
 	case GLUT_RIGHT_BUTTON:
@@ -103,11 +103,11 @@ void OpenGLApp::mouse(int button, int state, int x, int y) {
 	 */
 	case 3:
 		if (state == GLUT_DOWN)
-			mOpenGLApp->mCamera.zoom(1.0);
+			mOpenGLApp->mCamera.zoom(1.f);
 		break;
 	case 4:
 		if (state == GLUT_DOWN)
-			mOpenGLApp->mCamera.zoom(-1.0);
+			mOpenGLApp->mCamera.zoom(-1.f);
 		break;
 	}
 }
@@ -125,6 +125,9 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 	switch (key) {
 	case 27: // 'Esc' key
 		exit(1);
+		break;
+	case 'n': // advance one step
+		mOpenGLApp->mModel.update();
 		break;
 	case 'r': // take a screenshot
 		std::string filename = "./screenshot/timestep_" + std::to_string(mOpenGLApp->mModel.mTimesteps) + ".bmp";

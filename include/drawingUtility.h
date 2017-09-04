@@ -6,16 +6,25 @@
 
 #include "container.h"
 
+static void drawSquare(float x, float y, const array2f &len) {
+	glBegin(GL_QUADS);
+	glVertex3f(len[0] * x, len[1] * y, 0.f);
+	glVertex3f(len[0] * (x + 1), len[1] * y, 0.f);
+	glVertex3f(len[0] * (x + 1), len[1] * (y + 1), 0.f);
+	glVertex3f(len[0] * x, len[1] * (y + 1), 0.f);
+	glEnd();
+}
+
 static void drawCircle(float x, float y, float r, int numSlices) {
 	glPushMatrix();
-	glTranslatef(x, y, 0.0);
+	glTranslatef(x, y, 0.f);
 	glBegin(GL_LINE_LOOP);
 	for (int i = 0; i < numSlices; i++) {
-		float radian = (float)i / numSlices * 2 * boost::math::float_constants::pi;
+		float radian = (float)i / numSlices * 2.f * boost::math::float_constants::pi;
 		float xx = r * cos(radian);
 		float yy = r * sin(radian);
 
-		glVertex3f(xx, yy, 0.0);
+		glVertex3f(xx, yy, 0.f);
 	}
 	glEnd();
 	glPopMatrix();
@@ -23,27 +32,27 @@ static void drawCircle(float x, float y, float r, int numSlices) {
 
 static void drawFilledCircle(float x, float y, float r, int numSlices) {
 	glPushMatrix();
-	glTranslatef(x, y, 0.0);
+	glTranslatef(x, y, 0.f);
 	glBegin(GL_TRIANGLE_FAN);
-	glVertex3f(0.0, 0.0, 0.0);
+	glVertex3f(0.f, 0.f, 0.f);
 	for (int i = 0; i < numSlices; i++) {
-		float radian = (float)i / numSlices * 2 * boost::math::float_constants::pi;
+		float radian = (float)i / numSlices * 2.f * boost::math::float_constants::pi;
 		float xx = r * cos(radian);
 		float yy = r * sin(radian);
 
-		glVertex3f(xx, yy, 0.0);
+		glVertex3f(xx, yy, 0.f);
 	}
-	glVertex3f(r, 0.0, 0.0);
+	glVertex3f(r, 0.f, 0.f);
 	glEnd();
 	glPopMatrix();
 }
 
-static void drawLine(float x, float y, float t, array2f dir) {
+static void drawLine(float x, float y, float t, const array2f &dir) {
 	glPushMatrix();
-	glTranslatef(x, y, 0.0);
+	glTranslatef(x, y, 0.f);
 	glBegin(GL_LINES);
-	glVertex3f(0.0, 0.0, 0.0);
-	glVertex3f(t * dir[0], t * dir[1], 0.0);
+	glVertex3f(0.f, 0.f, 0.f);
+	glVertex3f(t * dir[0], t * dir[1], 0.f);
 	glEnd();
 	glPopMatrix();
 }
@@ -70,47 +79,47 @@ static array3f getColorJet(double v, double vmin, double vmax) {
 	 */
 
 	if (v < vmin + 0.125 * dv) {
-		color[0] = color[1] = 0.0;
+		color[0] = color[1] = 0.f;
 		color[2] = (float)(127 + (v - vmin) * 128 * 8 / dv);
 	}
 	else if (v < vmin + 0.25 * dv) {
-		color[0] = 0.0;
+		color[0] = 0.f;
 		color[1] = (float)((v - (vmin + 0.125 * dv)) * 127 * 8 / dv);
-		color[2] = 255.0;
+		color[2] = 255.f;
 	}
 	else if (v < vmin + 0.375 * dv) {
-		color[0] = 0.0;
+		color[0] = 0.f;
 		color[1] = (float)(127 + (v - (vmin + 0.25 * dv)) * 128 * 8 / dv);
-		color[2] = 255.0;
+		color[2] = 255.f;
 	}
 	else if (v < vmin + 0.5 * dv) {
 		color[0] = (float)((v - (vmin + 0.375 * dv)) * 127 * 8 / dv);
-		color[1] = 255.0;
+		color[1] = 255.f;
 		color[2] = (float)(255 + (v - (vmin + 0.375 * dv)) * (-128) * 8 / dv);
 	}
 	else if (v < vmin + 0.625 * dv) {
 		color[0] = (float)(127 + (v - (vmin + 0.5 * dv)) * 128 * 8 / dv);
-		color[1] = 255.0;
+		color[1] = 255.f;
 		color[2] = (float)(127 + (v - (vmin + 0.5 * dv)) * (-127) * 8 / dv);
 	}
 	else if (v < vmin + 0.75 * dv) {
-		color[0] = 255.0;
+		color[0] = 255.f;
 		color[1] = (float)(255 + (v - (vmin + 0.625 * dv)) * (-128) * 8 / dv);
-		color[2] = 0.0;
+		color[2] = 0.f;
 	}
 	else if (v < vmin + 0.875 * dv) {
-		color[0] = 255.0;
+		color[0] = 255.f;
 		color[1] = (float)(127 + (v - (vmin + 0.75 * dv)) * (-127) * 8 / dv);
-		color[2] = 0.0;
+		color[2] = 0.f;
 	}
 	else {
 		color[0] = (float)(255 + (v - (vmin + 0.875 * dv)) * (-128) * 8 / dv);
-		color[1] = color[2] = 0.0;
+		color[1] = color[2] = 0.f;
 	}
 
-	color[0] /= 255;
-	color[1] /= 255;
-	color[2] /= 255;
+	color[0] /= 255.f;
+	color[1] /= 255.f;
+	color[2] /= 255.f;
 
 	return color;
 }

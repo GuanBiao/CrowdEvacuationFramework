@@ -7,8 +7,6 @@
 #include "IL/ilu.h"
 #include "IL/ilut.h"
 
-#include "cellularAutomatonModel.h"
-#include "cellularAutomatonModel_GA.h"
 #include "obstacleRemoval.h"
 #include "camera.h"
 
@@ -46,7 +44,7 @@ private:
 	Camera mCamera;
 
 	/*
-	 * Definition is in openGLApp_gui.cpp.
+	 * The definitions are in openGLApp_gui.cpp.
 	 */
 	void createGUI();
 	static void gluiCallback( int id );

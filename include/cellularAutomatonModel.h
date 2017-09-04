@@ -8,11 +8,6 @@
 #include "floorField.h"
 #include "agentManager.h"
 
-/*
- * TYPE_EMPTY, TYPE_EXIT, TYPE_MOVABLE_OBSTACLE and TYPE_IMMOVABLE_OBSTACLE are defined in floorField.h.
- */
-#define TYPE_AGENT -5
-
 class CellularAutomatonModel {
 public:
 	FloorField mFloorField;
@@ -20,14 +15,15 @@ public:
 	int mTimesteps;
 
 	CellularAutomatonModel();
-	~CellularAutomatonModel() {}
+	void print() const;
 	virtual void update();
-	void editAgents( array2f worldCoord );
-	void editExits( array2f worldCoord );
-	void editObstacles( array2f worldCoord, bool movable );
+	void editAgent( const array2f &worldCoord );
+	void editExit( const array2f &worldCoord );
+	void editObstacle( const array2f &worldCoord, bool movable );
 	void refreshTimer();
-	virtual void save();
-	virtual void draw();
+	void showExitStatistics() const;
+	virtual void save() const;
+	virtual void draw() const;
 
 protected:
 	arrayNi mCellStates; // use [y-coordinate * mFloorField.mDim[0] + x-coordinate] to access elements
@@ -37,8 +33,8 @@ protected:
 	std::mt19937 mRNG;
 
 	void setCellStates();
-	inline int convertTo1D( int x, int y ) { return y * mFloorField.mDim[0] + x; }
-	inline int convertTo1D( array2i coord ) { return coord[1] * mFloorField.mDim[0] + coord[0]; }
+	inline int convertTo1D( int x, int y ) const { return y * mFloorField.mDim[0] + x; }
+	inline int convertTo1D( const array2i &coord ) const { return coord[1] * mFloorField.mDim[0] + coord[0]; }
 };
 
 #endif

@@ -15,7 +15,7 @@ public:
 	void zoom( float factor );
 	void drag( int x, int y );
 	void setMouseCoordinates( int x, int y );
-	array2f getWorldCoordinates( int sx, int sy );
+	array2f getWorldCoordinates( int sx, int sy ) const;
 	void update();
 
 private:

@@ -12,79 +12,68 @@
 #include "boost/assign/list_of.hpp"
 #include "boost/optional.hpp"
 
+#include "macro.h"
 #include "container.h"
 #include "drawingUtility.h"
-#include "agentManager.h"
+#include "basicObj.h"
 
 using std::cout;
 using std::endl;
-
-#define INIT_WEIGHT     DBL_MAX
-#define EXIT_WEIGHT     0.0
-#define OBSTACLE_WEIGHT 5000.0
-
-#define TYPE_EMPTY              -1
-#define TYPE_EXIT               -2
-#define TYPE_MOVABLE_OBSTACLE   -3
-#define TYPE_IMMOVABLE_OBSTACLE -4
-
-#define DIR_HORIZONTAL 1
-#define DIR_VERTICAL   2
-
-class Obstacle {
-public:
-	Obstacle() : mPos(array2i{ 0, 0 }), mMovable(false) {}
-	Obstacle( int x, int y, bool movable ) : mPos(array2i{ x, y }), mMovable(movable) {}
-	Obstacle( array2i pos, bool movable ) : mPos(pos), mMovable(movable) {}
-
-	array2i mPos;
-	bool mMovable; // true if obstacle i can be moved, false otherwise
-};
 
 class FloorField {
 public:
 	array2i mDim;                               // [0]: width, [1]: height
 	array2f mCellSize;                          // [0]: width, [1]: height
-	arrayNd mCells;                             // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
-	std::vector<arrayNd> mCellsForExits;        // store the final floor field with respect to each exit
-	std::vector<arrayNd> mCellsForExitsStatic;  // store the static floor field with respect to each exit
-	std::vector<arrayNd> mCellsForExitsDynamic; // store the dynamic floor field with respect to each exit
-	std::vector<std::vector<array2i>> mExits;
-	std::vector<Obstacle> mObstacles;
+	arrayNf mCells;                             // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
+	std::vector<arrayNf> mCellsForExits;        // store the final floor field with respect to each exit
+	std::vector<arrayNf> mCellsForExitsStatic;  // store the static floor field with respect to each exit
+	std::vector<arrayNf> mCellsForExitsDynamic; // store the dynamic floor field with respect to each exit
+	std::vector<Exit> mExits;
+	std::vector<Obstacle> mPool_obstacle;
+	arrayNi mActiveObstacles;
 	float mLambda;
 	float mCrowdAvoidance;
+	float mPresumedMax;
 	int mFlgEnableColormap;
 	int mFlgShowGrid;
 
 	void read( const char *fileName );
-	void print();
-	void update( const std::vector<Agent> &agents, bool toUpdateStatic );
-	boost::optional<array2i> isExisting_Exit( array2i coord );
-	boost::optional<int> isExisting_Obstacle( array2i coord, bool movable );
-	void editExits( array2i coord );
-	void editObstacles( array2i coord, bool movable );
-	void save();
-	void draw();
+	void print() const;
+	void update( const std::vector<Agent> &pool, const arrayNi &agents, bool toUpdateStatic );
+	boost::optional<array2i> isExisting_exit( const array2i &coord ) const;
+	boost::optional<int> isExisting_obstacle( const array2i &coord, bool movable ) const;
+	void editExit( const array2i &coord );
+	void editObstacle( const array2i &coord, bool movable );
+	int addObstacle( const array2i &coord, bool movable ); // push_back the return value to mActiveObstacles to actually add an obstacle
+	void deleteObstacle( int i );
+	void save() const;
+	void draw() const;
+
+	/*
+	 * Drawing units.
+	 */
+	void drawExit( const array2i &pos ) const;
+	void drawGrid() const;
 
 private:
 	arrayNi mCellStates; // use [y-coordinate * mDim[0] + x-coordinate] to access elements
 
 	void removeCells( int i );
-	bool validateExitAdjacency( array2i coord, int &numNeighbors, bool &isRight, bool &isLeft, bool &isUp, bool &isDown );
-	void combineExits( array2i coord, int direction );
-	void divideExit( array2i coord, int direction );
+	bool validateExitAdjacency( const array2i &coord, int &numNeighbors, bool &isRight, bool &isLeft, bool &isUp, bool &isDown ) const;
+	void combineExits( const array2i &coord, int direction );
+	void divideExit( const array2i &coord, int direction );
 	void updateCellsStatic();
-	void updateCellsDynamic( const std::vector<Agent> &agents );
-	void evaluateCells( int i, array2i root );
+	void updateCellsDynamic( const std::vector<Agent> &pool, const arrayNi &agents );
+	void evaluateCells( int i, const array2i &root );
 	void setCellStates();
-	inline int convertTo1D( int x, int y ) { return y * mDim[0] + x; }
-	inline int convertTo1D( array2i coord ) { return coord[1] * mDim[0] + coord[0]; }
+	inline int convertTo1D( int x, int y ) const { return y * mDim[0] + x; }
+	inline int convertTo1D( const array2i &coord ) const { return coord[1] * mDim[0] + coord[0]; }
 
 	/*
-	 * Definition is in floorField_tbb.cpp.
+	 * The definitions are in floorField_tbb.cpp.
 	 */
 	void updateCellsStatic_tbb();
-	void updateCellsDynamic_tbb( const std::vector<Agent> &agents );
+	void updateCellsDynamic_tbb( const std::vector<Agent> &pool, const arrayNi &agents );
 };
 
 #endif

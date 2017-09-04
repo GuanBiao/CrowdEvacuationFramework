@@ -18,7 +18,7 @@ void OpenGLApp::createGUI() {
 	glui->add_button("Save", 11, gluiCallback);
 	glui->add_button("Quit", -1, exit);
 
-	spinner->set_float_limits(0.0, 1.0, GLUI_LIMIT_CLAMP);
+	spinner->set_float_limits(0.f, 1.f, GLUI_LIMIT_CLAMP);
 }
 
 void OpenGLApp::gluiCallback(int id) {
