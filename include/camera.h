@@ -11,12 +11,13 @@ public:
 	int mWindowHeight;
 
 	Camera();
+	void update();
+	///
 	void setViewport( int width, int height );
 	void zoom( float factor );
 	void drag( int x, int y );
 	void setMouseCoordinates( int x, int y );
 	array2f getWorldCoordinates( int sx, int sy ) const;
-	void update();
 
 private:
 	float mVerticalClippingPlane;

@@ -16,13 +16,13 @@ public:
 
 class Obstacle {
 public:
-	Obstacle() : mPos({ 0, 0 }), mIsProxyOf(STATE_NULL), mIsAssigned(false), mMovable(false), mIsActive(false) {}
+	Obstacle() : mPos({ 0, 0 }), mIsAssigned(false), mMovable(false), mIsActive(false) {}
 
 	array2i mPos;
-	int mIsProxyOf;   // store relation with the parent obstacle if it exists
-	bool mIsAssigned; // true if some agent ever moves it, false otherwise
 	bool mMovable;
 	bool mIsActive;
+	///
+	bool mIsAssigned; // true if some agent ever moves it, false otherwise
 };
 
 class Agent {
@@ -31,8 +31,12 @@ public:
 
 	array2i mPos;
 	array2f mFacingDir;
-	int mInChargeOf; // store relation with the movable obstacle if it exists
 	bool mIsActive;
+	///
+	int mInChargeOf; // store relation with the movable obstacle if it exists
+	int mCapability; // timesteps needed to move the obstacle for one cell
+	array2i mDest;
+	arrayNf mCells;
 };
 
 #endif

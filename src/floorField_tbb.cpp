@@ -60,7 +60,7 @@ void FloorField::updateCellsStatic_tbb() {
 
 		// compute the static weight
 		for (const auto &e : mExits[i].mPos)
-			group.run([=] { evaluateCells(i, e); }); // spawn a task
+			group.run([=] { evaluateCells(e, mCellsForExitsStatic[i]); }); // spawn a task
 	}
 
 	group.wait(); // wait for all tasks to complete

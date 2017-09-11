@@ -17,8 +17,7 @@
 #define TYPE_EXIT               -2
 #define TYPE_MOVABLE_OBSTACLE   -3
 #define TYPE_IMMOVABLE_OBSTACLE -4
-#define TYPE_MOVING_OBSTACLE    -5
-#define TYPE_AGENT              -6
+#define TYPE_AGENT              -5
 
 /*
  * Define flags for exit editing.

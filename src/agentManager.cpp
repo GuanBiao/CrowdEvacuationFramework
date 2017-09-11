@@ -36,6 +36,30 @@ bool AgentManager::read(const char *fileName) {
 	return isAgentProvided;
 }
 
+void AgentManager::save() const {
+	time_t rawTime;
+	struct tm timeInfo;
+	char buffer[15];
+	time(&rawTime);
+	localtime_s(&timeInfo, &rawTime);
+	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
+
+	std::ofstream ofs("./data/config_agent_saved_" + std::string(buffer) + ".txt", std::ios::out);
+
+	ofs << "AGENT      " << mActiveAgents.size() << endl;
+	ofs << "           " << true << endl; // indicate agent locations are provided as follows
+	for (const auto &i : mActiveAgents)
+		ofs << "           " << mPool[i].mPos[0] << " " << mPool[i].mPos[1] << endl;
+
+	ofs << "AGENT_SIZE " << mAgentSize << endl;
+
+	ofs << "PANIC_PROB " << mPanicProb << endl;
+
+	ofs.close();
+
+	cout << "Save successfully: " << "./data/config_agent_saved_" + std::string(buffer) + ".txt" << endl;
+}
+
 boost::optional<int> AgentManager::isExisting(const array2i &coord) const {
 	for (size_t i = 0; i < mActiveAgents.size(); i++) {
 		if (coord == mPool[mActiveAgents[i]].mPos)
@@ -74,30 +98,6 @@ void AgentManager::deleteAgent(int i) {
 	mPool[mActiveAgents[i]].mIsActive = false;
 	mActiveAgents[i] = mActiveAgents.back();
 	mActiveAgents.pop_back();
-}
-
-void AgentManager::save() const {
-	time_t rawTime;
-	struct tm timeInfo;
-	char buffer[15];
-	time(&rawTime);
-	localtime_s(&timeInfo, &rawTime);
-	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
-
-	std::ofstream ofs("./data/config_agent_saved_" + std::string(buffer) + ".txt", std::ios::out);
-
-	ofs << "AGENT      " << mActiveAgents.size() << endl;
-	ofs << "           " << true << endl; // indicate agent locations are provided as follows
-	for (const auto &i : mActiveAgents)
-		ofs << "           " << mPool[i].mPos[0] << " " << mPool[i].mPos[1] << endl;
-
-	ofs << "AGENT_SIZE " << mAgentSize << endl;
-
-	ofs << "PANIC_PROB " << mPanicProb << endl;
-
-	ofs.close();
-
-	cout << "Save successfully: " << "./data/config_agent_saved_" + std::string(buffer) + ".txt" << endl;
 }
 
 void AgentManager::draw() const {

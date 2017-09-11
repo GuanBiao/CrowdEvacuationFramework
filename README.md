@@ -16,6 +16,8 @@
 
 2017/09/04: Add a simple obstacle removal model.
 
+2017/09/11: Customize the floor field for every volunteer.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

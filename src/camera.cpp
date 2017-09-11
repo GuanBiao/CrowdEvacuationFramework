@@ -10,6 +10,22 @@ Camera::Camera() {
 	mTargetPoint = { 0.f, 0.f };
 }
 
+void Camera::update() {
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	float aspectRatio = (float)mWindowWidth / mWindowHeight;
+	float left = -mVerticalClippingPlane + mZoomFactor;
+	float right = mVerticalClippingPlane - mZoomFactor;
+	float bottom = (-mHorizontalClippingPlane + mZoomFactor) / aspectRatio;
+	float top = (mHorizontalClippingPlane - mZoomFactor) / aspectRatio;
+	glOrtho(left, right, bottom, top, -10.0, 10.0);
+	mWorldToScreenRatio = { (right - left) / mWindowWidth, (top - bottom) / mWindowHeight };
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glTranslatef(mTargetPoint[0], mTargetPoint[1], 0.f);
+}
+
 void Camera::setViewport(int width, int height) {
 	glViewport(0, 0, width, height);
 
@@ -44,20 +60,4 @@ array2f Camera::getWorldCoordinates(int sx, int sy) const {
 	float wx = left + sx * mWorldToScreenRatio[0] - mTargetPoint[0];
 	float wy = bottom + (mWindowHeight - sy) * mWorldToScreenRatio[1] - mTargetPoint[1];
 	return array2f{ wx, wy };
-}
-
-void Camera::update() {
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	float aspectRatio = (float)mWindowWidth / mWindowHeight;
-	float left = -mVerticalClippingPlane + mZoomFactor;
-	float right = mVerticalClippingPlane - mZoomFactor;
-	float bottom = (-mHorizontalClippingPlane + mZoomFactor) / aspectRatio;
-	float top = (mHorizontalClippingPlane - mZoomFactor) / aspectRatio;
-	glOrtho(left, right, bottom, top, -10.0, 10.0);
-	mWorldToScreenRatio = { (right - left) / mWindowWidth, (top - bottom) / mWindowHeight };
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	glTranslatef(mTargetPoint[0], mTargetPoint[1], 0.f);
 }

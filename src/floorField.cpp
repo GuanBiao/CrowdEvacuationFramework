@@ -76,20 +76,48 @@ void FloorField::read(const char *fileName) {
 	ifs.close();
 }
 
-void FloorField::print() const {
-	cout << "Floor field:" << endl;
-	for (int y = mDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mDim[0]; x++)
-			printf("%6.1f ", mCells[convertTo1D(x, y)]);
-		printf("\n");
+void FloorField::save() const {
+	time_t rawTime;
+	struct tm timeInfo;
+	char buffer[15];
+	time(&rawTime);
+	localtime_s(&timeInfo, &rawTime);
+	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
+
+	std::ofstream ofs("./data/config_floorField_saved_" + std::string(buffer) + ".txt", std::ios::out);
+
+	ofs << "DIM             " << mDim[0] << " " << mDim[1] << endl;
+
+	ofs << "CELL_SIZE       " << mCellSize[0] << " " << mCellSize[1] << endl;
+
+	ofs << "EXIT            " << mExits.size() << endl;
+	for (const auto &exit : mExits) {
+		ofs << "                " << exit.mPos.size() << endl;
+		for (const auto &e : exit.mPos)
+			ofs << "                " << e[0] << " " << e[1] << endl;
 	}
 
-	cout << "Cell States:" << endl;
-	for (int y = mDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mDim[0]; x++)
-			printf("%3d ", mCellStates[convertTo1D(x, y)]);
-		printf("\n");
+	ofs << "MOVABLE         " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && i.mMovable; }) << endl;
+	for (const auto &i : mActiveObstacles) {
+		if (mPool_obstacle[i].mMovable)
+			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
 	}
+
+	ofs << "IMMOVABLE       " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && !i.mMovable; }) << endl;
+	for (const auto &i : mActiveObstacles) {
+		if (!mPool_obstacle[i].mMovable)
+			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
+	}
+
+	ofs << "LAMBDA          " << mLambda << endl;
+
+	ofs << "CROWD_AVOIDANCE " << mCrowdAvoidance << endl;
+
+	ofs << "PRESUMED_MAX    " << mPresumedMax << endl;
+
+	ofs.close();
+
+	cout << "Save successfully: " << "./data/config_floorField_saved_" + std::string(buffer) + ".txt" << endl;
 }
 
 void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, bool toUpdateStatic) {
@@ -113,6 +141,105 @@ void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, b
 	std::copy(mCellsForExits[0].begin(), mCellsForExits[0].end(), mCells.begin());
 	for (size_t k = 1; k < mExits.size(); k++)
 		std::transform(mCells.begin(), mCells.end(), mCellsForExits[k].begin(), mCells.begin(), [](float i, float j) { return i = i > j ? j : i; });
+}
+
+void FloorField::print() const {
+	cout << "Floor field:" << endl;
+	for (int y = mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mDim[0]; x++)
+			printf("%6.1f ", mCells[convertTo1D(x, y)]);
+		printf("\n");
+	}
+
+	cout << "Cell States:" << endl;
+	for (int y = mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mDim[0]; x++)
+			printf("%3d ", mCellStates[convertTo1D(x, y)]);
+		printf("\n");
+	}
+}
+
+void FloorField::evaluateCells(const array2i &root, arrayNf &floorField) const {
+	std::queue<int> toDoList;
+	toDoList.push(convertTo1D(root));
+
+	while (!toDoList.empty()) {
+		int curIndex = toDoList.front(), adjIndex;
+		array2i cell = { curIndex % mDim[0], curIndex / mDim[0] };
+		toDoList.pop();
+
+		// right cell
+		adjIndex = curIndex + 1;
+		if (cell[0] + 1 < mDim[0] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
+				floorField[adjIndex] = floorField[curIndex] + 1.f;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// left cell
+		adjIndex = curIndex - 1;
+		if (cell[0] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
+				floorField[adjIndex] = floorField[curIndex] + 1.f;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// up cell
+		adjIndex = curIndex + mDim[0];
+		if (cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
+				floorField[adjIndex] = floorField[curIndex] + 1.f;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// down cell
+		adjIndex = curIndex - mDim[0];
+		if (cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
+				floorField[adjIndex] = floorField[curIndex] + 1.f;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// upper right cell
+		adjIndex = curIndex + mDim[0] + 1;
+		if (cell[0] + 1 < mDim[0] && cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
+				floorField[adjIndex] = floorField[curIndex] + mLambda;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// lower left cell
+		adjIndex = curIndex - mDim[0] - 1;
+		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
+				floorField[adjIndex] = floorField[curIndex] + mLambda;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// lower right cell
+		adjIndex = curIndex - mDim[0] + 1;
+		if (cell[0] + 1 < mDim[0] && cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
+				floorField[adjIndex] = floorField[curIndex] + mLambda;
+				toDoList.push(adjIndex);
+			}
+		}
+
+		// upper left cell
+		adjIndex = curIndex + mDim[0] - 1;
+		if (cell[0] - 1 >= 0 && cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
+			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
+				floorField[adjIndex] = floorField[curIndex] + mLambda;
+				toDoList.push(adjIndex);
+			}
+		}
+	}
 }
 
 boost::optional<array2i> FloorField::isExisting_exit(const array2i &coord) const {
@@ -219,7 +346,6 @@ int FloorField::addObstacle(const array2i &coord, bool movable) {
 	}
 	assert(i != mPool_obstacle.size() && "The obstacle is not enough");
 	mPool_obstacle[i].mPos = coord;
-	mPool_obstacle[i].mIsProxyOf = STATE_NULL;
 	mPool_obstacle[i].mIsAssigned = false;
 	mPool_obstacle[i].mMovable = movable;
 	mPool_obstacle[i].mIsActive = true;
@@ -231,50 +357,6 @@ void FloorField::deleteObstacle(int i) {
 	mPool_obstacle[mActiveObstacles[i]].mIsActive = false;
 	mActiveObstacles[i] = mActiveObstacles.back();
 	mActiveObstacles.pop_back();
-}
-
-void FloorField::save() const {
-	time_t rawTime;
-	struct tm timeInfo;
-	char buffer[15];
-	time(&rawTime);
-	localtime_s(&timeInfo, &rawTime);
-	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
-
-	std::ofstream ofs("./data/config_floorField_saved_" + std::string(buffer) + ".txt", std::ios::out);
-
-	ofs << "DIM             " << mDim[0] << " " << mDim[1] << endl;
-
-	ofs << "CELL_SIZE       " << mCellSize[0] << " " << mCellSize[1] << endl;
-
-	ofs << "EXIT            " << mExits.size() << endl;
-	for (const auto &exit : mExits) {
-		ofs << "                " << exit.mPos.size() << endl;
-		for (const auto &e : exit.mPos)
-			ofs << "                " << e[0] << " " << e[1] << endl;
-	}
-
-	ofs << "MOVABLE         " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && i.mMovable; }) << endl;
-	for (const auto &i : mActiveObstacles) {
-		if (mPool_obstacle[i].mMovable)
-			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
-	}
-
-	ofs << "IMMOVABLE       " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && !i.mMovable; }) << endl;
-	for (const auto &i : mActiveObstacles) {
-		if (!mPool_obstacle[i].mMovable)
-			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
-	}
-
-	ofs << "LAMBDA          " << mLambda << endl;
-
-	ofs << "CROWD_AVOIDANCE " << mCrowdAvoidance << endl;
-
-	ofs << "PRESUMED_MAX    " << mPresumedMax << endl;
-
-	ofs.close();
-
-	cout << "Save successfully: " << "./data/config_floorField_saved_" + std::string(buffer) + ".txt" << endl;
 }
 
 void FloorField::draw() const {
@@ -300,9 +382,6 @@ void FloorField::draw() const {
 	 * Draw obstacles.
 	 */
 	for (const auto &i : mActiveObstacles) {
-		if (mPool_obstacle[i].mIsProxyOf != STATE_NULL)
-			continue;
-
 		if (mPool_obstacle[i].mMovable)
 			glColor3f(0.8f, 0.8f, 0.8f);
 		else
@@ -553,7 +632,7 @@ void FloorField::updateCellsStatic() {
 
 		// compute the static weight
 		for (const auto &e : mExits[i].mPos)
-			evaluateCells(i, e);
+			evaluateCells(e, mCellsForExitsStatic[i]);
 	}
 }
 
@@ -582,89 +661,6 @@ void FloorField::updateCellsDynamic(const std::vector<Agent> &pool, const arrayN
 				}
 			}
 			mCellsForExitsDynamic[i][j] = mCrowdAvoidance * (P + 0.5f * E) / mExits[i].mPos.size();
-		}
-	}
-}
-
-void FloorField::evaluateCells(int i, const array2i &root) {
-	std::queue<array2i> toDoList;
-	toDoList.push(root);
-
-	while (!toDoList.empty()) {
-		array2i cell = toDoList.front();
-		int curIndex = convertTo1D(cell), adjIndex;
-		toDoList.pop();
-
-		// right cell
-		adjIndex = convertTo1D(cell[0] + 1, cell[1]);
-		if (cell[0] + 1 < mDim[0] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.f) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.f;
-				toDoList.push({ cell[0] + 1, cell[1] });
-			}
-		}
-
-		// left cell
-		adjIndex = convertTo1D(cell[0] - 1, cell[1]);
-		if (cell[0] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.f) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.f;
-				toDoList.push({ cell[0] - 1, cell[1] });
-			}
-		}
-
-		// up cell
-		adjIndex = convertTo1D(cell[0], cell[1] + 1);
-		if (cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.f) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.f;
-				toDoList.push({ cell[0], cell[1] + 1 });
-			}
-		}
-
-		// down cell
-		adjIndex = convertTo1D(cell[0], cell[1] - 1);
-		if (cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + 1.f) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + 1.f;
-				toDoList.push({ cell[0], cell[1] - 1 });
-			}
-		}
-
-		// upper right cell
-		adjIndex = convertTo1D(cell[0] + 1, cell[1] + 1);
-		if (cell[0] + 1 < mDim[0] && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
-				toDoList.push({ cell[0] + 1, cell[1] + 1 });
-			}
-		}
-
-		// lower left cell
-		adjIndex = convertTo1D(cell[0] - 1, cell[1] - 1);
-		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
-				toDoList.push({ cell[0] - 1, cell[1] - 1 });
-			}
-		}
-
-		// lower right cell
-		adjIndex = convertTo1D(cell[0] + 1, cell[1] - 1);
-		if (cell[0] + 1 < mDim[0] && cell[1] - 1 >= 0 && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
-				toDoList.push({ cell[0] + 1, cell[1] - 1 });
-			}
-		}
-
-		// upper left cell
-		adjIndex = convertTo1D(cell[0] - 1, cell[1] + 1);
-		if (cell[0] - 1 >= 0 && cell[1] + 1 < mDim[1] && mCellsForExitsStatic[i][adjIndex] != OBSTACLE_WEIGHT) {
-			if (mCellsForExitsStatic[i][adjIndex] > mCellsForExitsStatic[i][curIndex] + mLambda) {
-				mCellsForExitsStatic[i][adjIndex] = mCellsForExitsStatic[i][curIndex] + mLambda;
-				toDoList.push({ cell[0] - 1, cell[1] + 1 });
-			}
 		}
 	}
 }
