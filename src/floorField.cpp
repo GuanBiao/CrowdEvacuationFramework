@@ -346,9 +346,9 @@ int FloorField::addObstacle(const array2i &coord, bool movable) {
 	}
 	assert(i != mPool_obstacle.size() && "The obstacle is not enough");
 	mPool_obstacle[i].mPos = coord;
-	mPool_obstacle[i].mIsAssigned = false;
 	mPool_obstacle[i].mMovable = movable;
 	mPool_obstacle[i].mIsActive = true;
+	mPool_obstacle[i].mIsAssigned = false;
 
 	return i;
 }

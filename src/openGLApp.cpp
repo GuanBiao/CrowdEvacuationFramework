@@ -38,6 +38,8 @@ void OpenGLApp::initOpenGL(int argc, char *argv[]) {
 
 	glDisable(GL_DEPTH_TEST);
 
+	mOpenGLApp->mModel.setTextures();
+
 	createGUI();
 }
 

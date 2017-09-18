@@ -1,7 +1,8 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	mRNG.seed(std::random_device{}());
+	//mRNG.seed(std::random_device{}());
+	mRNG.seed(0);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
 
@@ -91,7 +92,7 @@ void CellularAutomatonModel::update() {
 
 	for (const auto &i : updatingOrder) {
 		Agent &agent = mAgentManager.mPool[i];
-		array2i &dim = mFloorField.mDim;
+		const array2i &dim = mFloorField.mDim;
 		int curIndex = convertTo1D(agent.mPos), adjIndex;
 
 		if (distribution(mRNG) > mAgentManager.mPanicProb) {

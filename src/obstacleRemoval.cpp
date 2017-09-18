@@ -11,12 +11,23 @@ void ObstacleRemovalModel::update() {
 	 */
 	if (mFlgUpdateStatic) {
 		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, true);
+		for (const auto &i : mAgentManager.mActiveAgents) {
+			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
+				customizeFloorField(mAgentManager.mPool[i]);
+		}
+
+		// if a volunteer is resposible for an obstacle that is not active anymore, reset that volunteer
+		for (const auto &i : mAgentManager.mActiveAgents) {
+			if (!mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mIsActive)
+				mAgentManager.mPool[i].mInChargeOf = STATE_NULL;
+		}
+
+		// BUG: if the exit is totally blocked, agents will never move
+
 		mFlgUpdateStatic = false;
 	}
 	else
 		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, false);
-
-	// TODO: update the model status after editing
 
 	/*
 	 * Check whether the agent arrives at any exit.
@@ -65,7 +76,7 @@ void ObstacleRemovalModel::update() {
 	for (const auto &i : updatingOrder) {
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 			if (mTimesteps % mAgentManager.mPool[i].mCapability == 0)
-				moveHelper(mAgentManager.mPool[i], distribution);
+				moveVolunteer(mAgentManager.mPool[i], distribution);
 		}
 		else {
 			if (distribution(mRNG) > mAgentManager.mPanicProb)
@@ -91,7 +102,7 @@ void ObstacleRemovalModel::print() const {
 		printf("%2d (%2d, %2d) ", i, mAgentManager.mPool[i].mPos[0], mAgentManager.mPool[i].mPos[1]);
 		printf("mInChargeOf: %2d ", mAgentManager.mPool[i].mInChargeOf);
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
-			printf("mCapability: %2d ", mAgentManager.mPool[i].mCapability);
+			printf("mCapability: %2d mDest: (%2d, %2d) ", mAgentManager.mPool[i].mCapability, mAgentManager.mPool[i].mDest[0], mAgentManager.mPool[i].mDest[1]);
 		printf("\n");
 	}
 
@@ -120,29 +131,33 @@ void ObstacleRemovalModel::draw() const {
 		float y = mAgentManager.mAgentSize * mAgentManager.mPool[i].mPos[1] + mAgentManager.mAgentSize / 2.f;
 		float r = mAgentManager.mAgentSize / 2.5f;
 
-		/*
-		 * Draw the body.
-		 */
-		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
-			glColor3f(0.f, 0.f, 0.f);
+		glColor3f(1.f, 1.f, 1.f);
+		if (mAgentManager.mPool[i].mInChargeOf == STATE_NULL)
+			drawFilledCircleWithTexture(x, y, r, 10, mAgentManager.mPool[i].mFacingDir, mTextures[0]);
 		else
-			glColor3f(1.f, 1.f, 1.f);
-		drawFilledCircle(x, y, r, 10);
-
-		glLineWidth(1.f);
-		glColor3f(0.f, 0.f, 0.f);
-		drawCircle(x, y, r, 10);
-
-		/*
-		 * Draw the facing direction.
-		 */
-		glLineWidth(1.f);
-		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
-			glColor3f(1.f, 1.f, 1.f);
-		else
-			glColor3f(0.f, 0.f, 0.f);
-		drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
+			drawFilledCircleWithTexture(x, y, r, 10, mAgentManager.mPool[i].mFacingDir, mTextures[1]);
 	}
+}
+
+void ObstacleRemovalModel::setTextures() {
+	ILubyte *data;
+	glGenTextures(2, mTextures);
+
+	ilLoadImage("./data/Fearful_Face_Emoji.png");
+	data = ilGetData();
+	assert(data);
+	glBindTexture(GL_TEXTURE_2D, mTextures[0]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ilGetInteger(IL_IMAGE_WIDTH), ilGetInteger(IL_IMAGE_HEIGHT), 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	ilLoadImage("./data/Persevering_Face_Emoji.png");
+	data = ilGetData();
+	assert(data);
+	glBindTexture(GL_TEXTURE_2D, mTextures[1]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, ilGetInteger(IL_IMAGE_WIDTH), ilGetInteger(IL_IMAGE_HEIGHT), 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_distribution<float> &distribution) {
@@ -194,6 +209,7 @@ void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_
 	if (candidates.size() != 0) {
 		index = candidates[(int)floor(distribution(mRNG) * candidates.size())];
 		mFloorField.mPool_obstacle[index].mIsAssigned = true;
+		agent.mFacingDir = norm(agent.mPos, mFloorField.mPool_obstacle[index].mPos);
 		agent.mInChargeOf = index;
 		agent.mCapability = (int)(distribution(mRNG) / 2.f * 10.f + 1.f); // shift from [0.f, 1.f) to [1, 6)
 		selectCellToPutObstacle(agent);
@@ -201,36 +217,55 @@ void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_
 }
 
 void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent) {
-	array2i dest;
-	bool isValid = false;
-	do {
-		cout << "Please input the destination for the agent at " << agent.mPos << endl;
-		cout << "x-coordinate: ";
-		std::cin >> dest[0];
-		cout << "y-coordinate: ";
-		std::cin >> dest[1];
+	/*
+	 * Find the closest exit.
+	 */
+	array2i exitPos;
+	float minDist = FLT_MAX;
+	for (const auto &exit : mFloorField.mExits) {
+		array2i middle = exit.mPos[exit.mPos.size() / 2];
+		float dist = distance(agent.mPos, middle);
+		if (minDist > dist) {
+			minDist = dist;
+			exitPos = middle;
+		}
+	}
 
-		if (dest[0] >= 0 && dest[0] < mFloorField.mDim[0] && dest[1] >= 0 && dest[1] < mFloorField.mDim[1] && (mCellStates[convertTo1D(dest)] == TYPE_EMPTY || mCellStates[convertTo1D(dest)] == TYPE_AGENT))
-			isValid = true;
-		else
-			cout << "Invalid input! Try again" << endl;
-	} while (!isValid);
+	/*
+	 * Determine the destination along the wall.
+	 */
+	if (exitPos[0] == mFloorField.mDim[0] - 1) // right side
+		determineDest(agent, convertTo1D(exitPos) - 1, DIR_VERTICAL);
+	else if (exitPos[0] == 0) // left side
+		determineDest(agent, convertTo1D(exitPos) + 1, DIR_VERTICAL);
+	else if (exitPos[1] == mFloorField.mDim[1] - 1) // up side
+		determineDest(agent, convertTo1D(exitPos) - mFloorField.mDim[0], DIR_HORIZONTAL);
+	else if (exitPos[1] == 0) // down side
+		determineDest(agent, convertTo1D(exitPos) + mFloorField.mDim[0], DIR_HORIZONTAL);
+	else
+		assert(1 == 0 && "The scene is wrong");
+	printf("The volunteer at (%2d, %2d) chooses (%2d, %2d) as the destination\n", agent.mPos[0], agent.mPos[1], agent.mDest[0], agent.mDest[1]);
 
-	agent.mDest = dest;
 	customizeFloorField(agent);
 }
 
-void ObstacleRemovalModel::moveHelper(Agent &agent, const std::uniform_real_distribution<float> &distribution) {
+void ObstacleRemovalModel::moveVolunteer(Agent &agent, const std::uniform_real_distribution<float> &distribution) {
+	/*
+	 * Reconsider the destination if it is occupied at the moment.
+	 */
+	if (mCellStates[convertTo1D(agent.mDest)] == TYPE_MOVABLE_OBSTACLE || mCellStates[convertTo1D(agent.mDest)] == TYPE_IMMOVABLE_OBSTACLE)
+		selectCellToPutObstacle(agent);
+
 	Obstacle &obstacle = mFloorField.mPool_obstacle[agent.mInChargeOf];
-	array2i &dim = mFloorField.mDim;
+	const array2i &dim = mFloorField.mDim;
 	int curIndex = convertTo1D(obstacle.mPos);
 	int adjIndex = getFreeCell(agent.mCells, obstacle.mPos, distribution, agent.mCells[curIndex]); // no backstepping is allowed
 
 	/*
 	 * Decide the cell where the obstacle will be moved.
 	 */
-	array2i desired;
 	label:
+	array2i desired;
 	if (adjIndex != STATE_NULL)
 		desired = { adjIndex % dim[0], adjIndex / dim[0] };
 	else // cells that have lower values are all unavailable, so the volunteer stays still
@@ -268,17 +303,17 @@ void ObstacleRemovalModel::moveHelper(Agent &agent, const std::uniform_real_dist
 		mCellStates[convertTo1D(agent.mPos)] = TYPE_EMPTY;
 		mCellStates[convertTo1D(obstacle.mPos)] = TYPE_AGENT;
 		mCellStates[convertTo1D(desired)] = TYPE_MOVABLE_OBSTACLE;
-		agent.mFacingDir = norm(agent.mPos, obstacle.mPos);
 		agent.mPos = obstacle.mPos;
+		agent.mFacingDir = norm(agent.mPos, desired);
 		obstacle.mPos = desired;
 	}
 
 	/*
-	 * Update floor fields.
+	 * Update floor fields (the main one and other volunteers').
 	 */
 	mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, true);
 	for (const auto &i : mAgentManager.mActiveAgents) {
-		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
+		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL && mAgentManager.mPool[i].mPos != agent.mPos)
 			customizeFloorField(mAgentManager.mPool[i]);
 	}
 
@@ -302,8 +337,6 @@ void ObstacleRemovalModel::moveAgent(Agent &agent, const std::uniform_real_distr
 		agent.mPos = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 		mCellStates[adjIndex] = TYPE_AGENT;
 	}
-	else
-		agent.mFacingDir = array2f{ 0.f, 0.f };
 }
 
 void ObstacleRemovalModel::customizeFloorField(Agent &agent) {
@@ -437,14 +470,80 @@ int ObstacleRemovalModel::getFreeCell(const arrayNf &cells, const array2i &pos, 
 		return STATE_NULL;
 }
 
-array2f ObstacleRemovalModel::norm(const array2i &p1, const array2i &p2) const {
-	float len = (float)sqrt((p2[0] - p1[0]) * (p2[0] - p1[0]) + (p2[1] - p1[1]) * (p2[1] - p1[1]));
-	return array2f{ (p2[0] - p1[0]) / len, (p2[1] - p1[1]) / len };
-}
+void ObstacleRemovalModel::determineDest(Agent &agent, int start, int direction) {
+	const float IDEAL_DIST = 4.f, OFFSET = 2.f;
+	int candidate1 = STATE_NULL, candidate2 = STATE_NULL;
+	int curIndex;
 
-array2i ObstacleRemovalModel::rotate(const array2i &pivot, const array2i &p, float theta) const {
-	array2i q;
-	q[0] = (int)round(cosd(theta) * (p[0] - pivot[0]) - sind(theta) * (p[1] - pivot[1])) + pivot[0];
-	q[1] = (int)round(sind(theta) * (p[0] - pivot[0]) + cosd(theta) * (p[1] - pivot[1])) + pivot[1];
-	return q;
+	/*
+	 * Search rightwards/upwards to find the first cell that is [IDEAL_DIST - OFFSET, IDEAL_DIST + OFFSET] away from the exit.
+	 */
+	curIndex = start;
+	if (direction == DIR_HORIZONTAL) {
+		while (curIndex % mFloorField.mDim[0] >= start % mFloorField.mDim[0] && curIndex % mFloorField.mDim[0] < mFloorField.mDim[0]) {
+			if (mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT) {
+				if (mFloorField.mCells[curIndex] >= IDEAL_DIST - OFFSET && mFloorField.mCells[curIndex] <= IDEAL_DIST + OFFSET) {
+					candidate1 = curIndex;
+					break;
+				}
+			}
+			curIndex++;
+		}
+	}
+	else {
+		while (curIndex < mFloorField.mDim[0] * mFloorField.mDim[1]) {
+			if (mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT) {
+				if (mFloorField.mCells[curIndex] >= IDEAL_DIST - OFFSET && mFloorField.mCells[curIndex] <= IDEAL_DIST + OFFSET) {
+					candidate1 = curIndex;
+					break;
+				}
+			}
+			curIndex += mFloorField.mDim[0];
+		}
+	}
+
+	/*
+	 * Search leftwards/downwards to find the first cell that is [IDEAL_DIST - OFFSET, IDEAL_DIST + OFFSET] away from the exit.
+	 */
+	if (direction == DIR_HORIZONTAL) {
+		curIndex = start - 1;
+		while (curIndex % mFloorField.mDim[0] >= 0 && curIndex % mFloorField.mDim[0] < start % mFloorField.mDim[0]) {
+			if (mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT) {
+				if (mFloorField.mCells[curIndex] >= IDEAL_DIST - OFFSET && mFloorField.mCells[curIndex] <= IDEAL_DIST + OFFSET) {
+					candidate2 = curIndex;
+					break;
+				}
+			}
+			curIndex--;
+		}
+	}
+	else {
+		curIndex = start - mFloorField.mDim[0];
+		while (curIndex >= 0) {
+			if (mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT) {
+				if (mFloorField.mCells[curIndex] >= IDEAL_DIST - OFFSET && mFloorField.mCells[curIndex] <= IDEAL_DIST + OFFSET) {
+					candidate2 = curIndex;
+					break;
+				}
+			}
+			curIndex -= mFloorField.mDim[0];
+		}
+	}
+
+	/*
+	 * Calculate the distance to candidate1 and candidate2.
+	 */
+	agent.mDest = agent.mPos;
+	customizeFloorField(agent);
+
+	/*
+	 * Compare two candidates.
+	 */
+	if (candidate1 == STATE_NULL)
+		agent.mDest = array2i{ candidate2 % mFloorField.mDim[0], candidate2 / mFloorField.mDim[0] };
+	else if (candidate2 == STATE_NULL)
+		agent.mDest = array2i{ candidate1 % mFloorField.mDim[0], candidate1 / mFloorField.mDim[0] };
+	else
+		agent.mDest = agent.mCells[candidate1] < agent.mCells[candidate2] ? array2i{ candidate1 % mFloorField.mDim[0], candidate1 / mFloorField.mDim[0] } : array2i{ candidate2 % mFloorField.mDim[0], candidate2 / mFloorField.mDim[0] };
+	// BUG: what happens if both candidate1 and candidate2 are STATE_NULL
 }

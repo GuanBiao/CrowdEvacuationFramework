@@ -33,6 +33,7 @@ public:
 	 * Drawing.
 	 */
 	virtual void draw() const;
+	virtual void setTextures() {}
 
 protected:
 	arrayNi mCellStates; // use [y-coordinate * mFloorField.mDim[0] + x-coordinate] to access elements
