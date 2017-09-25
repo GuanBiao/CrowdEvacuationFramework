@@ -2,6 +2,8 @@
 #define __MACRO_H__
 
 #define STATE_NULL              -1
+#define STATE_SUCCESSFUL        true
+#define STATE_FAILED            false
 
 /*
  * Define constants for the floor field.

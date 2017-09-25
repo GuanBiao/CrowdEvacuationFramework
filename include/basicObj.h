@@ -33,8 +33,9 @@ public:
 	array2f mFacingDir;
 	bool mIsActive;
 	///
-	int mInChargeOf; // store relation with the movable obstacle if it exists
-	int mCapability; // timesteps needed to move the obstacle for one cell
+	int mInChargeOf;  // store relation with the movable obstacle if it exists
+	int mStrength;    // timesteps needed to move an obstacle to another cell
+	int mCurStrength; // record the current strength when moving an obstacle to another cell
 	array2i mDest;
 	arrayNf mCells;
 };

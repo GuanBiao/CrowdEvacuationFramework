@@ -20,6 +20,8 @@
 
 2017/09/18: The volunteer can determine the destination on its own.
 
+2017/09/25: Modify the mechanism about moving volunteers and determining the destination.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

@@ -135,6 +135,7 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 		std::string filename = "./screenshot/timestep_" + std::to_string(mOpenGLApp->mModel.mTimesteps) + ".bmp";
 		if (CreateDirectory("screenshot", NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
 			ilutGLScreen();
+			ilEnable(IL_FILE_OVERWRITE); // overwrite existing files if names collide
 			ilSave(IL_BMP, filename.c_str());
 			cout << "Save successfully: " << filename << endl;
 		}

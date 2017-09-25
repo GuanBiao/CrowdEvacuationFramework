@@ -1,5 +1,5 @@
 AGENT      1
            1
-           2 5
+           2 6
 AGENT_SIZE 0.4
 PANIC_PROB 0.05
