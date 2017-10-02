@@ -1,5 +1,43 @@
 #include "obstacleRemoval.h"
 
+ObstacleRemovalModel::ObstacleRemovalModel() {
+	read("./data/config_obstacleRemoval.txt");
+	mFloorField.calcPriority(mAlpha);
+}
+
+void ObstacleRemovalModel::read(const char *fileName) {
+	std::ifstream ifs(fileName, std::ios::in);
+	assert(ifs.good());
+
+	std::string key;
+	while (ifs >> key) {
+		if (key.compare("IDEAL_DIST_RANGE") == 0)
+			ifs >> mIdealDistRange[0] >> mIdealDistRange[1];
+		else if (key.compare("ALPHA") == 0)
+			ifs >> mAlpha;
+	}
+
+	ifs.close();
+}
+
+void ObstacleRemovalModel::save() const {
+	time_t rawTime;
+	struct tm timeInfo;
+	char buffer[15];
+	time(&rawTime);
+	localtime_s(&timeInfo, &rawTime);
+	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
+
+	std::ofstream ofs("./data/config_obstacleRemoval_saved_" + std::string(buffer) + ".txt", std::ios::out);
+	ofs << "IDEAL_DIST_RANGE " << mIdealDistRange[0] << " " << mIdealDistRange[1] << endl;
+	ofs << "ALPHA            " << mAlpha << endl;
+	ofs.close();
+
+	cout << "Save successfully: " << "./data/config_obstacleRemoval_saved_" + std::string(buffer) + ".txt" << endl;
+
+	CellularAutomatonModel::save();
+}
+
 void ObstacleRemovalModel::update() {
 	if (mAgentManager.mActiveAgents.size() == 0)
 		return;
@@ -15,6 +53,7 @@ void ObstacleRemovalModel::update() {
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
 				customizeFloorField(mAgentManager.mPool[i]);
 		}
+		mFloorField.calcPriority(mAlpha);
 
 		// if a volunteer is resposible for an obstacle that is not active anymore, reset that volunteer
 		for (const auto &i : mAgentManager.mActiveAgents) {
@@ -179,6 +218,7 @@ void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_
 	 */
 	array2i coord;
 	int index;
+	float maxPriority = FLT_MIN;
 	arrayNi candidates;
 	candidates.reserve(8);
 
@@ -186,64 +226,120 @@ void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_
 	coord = { agent.mPos[0] + 1, agent.mPos[1] };
 	if (agent.mPos[0] + 1 < mFloorField.mDim[0] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// left cell
 	coord = { agent.mPos[0] - 1, agent.mPos[1] };
 	if (agent.mPos[0] - 1 >= 0 && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// up cell
 	coord = { agent.mPos[0], agent.mPos[1] + 1 };
 	if (agent.mPos[1] + 1 < mFloorField.mDim[1] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// down cell
 	coord = { agent.mPos[0], agent.mPos[1] - 1 };
 	if (agent.mPos[1] - 1 >= 0 && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// upper right cell
 	coord = { agent.mPos[0] + 1, agent.mPos[1] + 1 };
 	if (agent.mPos[0] + 1 < mFloorField.mDim[0] && agent.mPos[1] + 1 < mFloorField.mDim[1] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// lower left cell
 	coord = { agent.mPos[0] - 1, agent.mPos[1] - 1 };
 	if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] - 1 >= 0 && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// lower right cell
 	coord = { agent.mPos[0] + 1, agent.mPos[1] - 1 };
 	if (agent.mPos[0] + 1 < mFloorField.mDim[0] && agent.mPos[1] - 1 >= 0 && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	// upper left cell
 	coord = { agent.mPos[0] - 1, agent.mPos[1] + 1 };
 	if (agent.mPos[1] - 1 >= 0 && agent.mPos[1] + 1 < mFloorField.mDim[1] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
-		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned)
-			candidates.push_back(mFloorField.mActiveObstacles[index]);
+		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
+			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			else if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority > maxPriority) {
+				maxPriority = mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority;
+				candidates.clear();
+				candidates.push_back(mFloorField.mActiveObstacles[index]);
+			}
+		}
 	}
 
 	/*
@@ -272,11 +368,10 @@ void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent, const std::unif
 	 * Choose a cell that meets three conditions:
 	 *  1. It is empty or occupied by another agent or volunteer.
 	 *  2. It has at least three obstacles as the neighbor. (Moore neighborhood)
-	 *  3. It is [IDEAL_MIN_DIST, IDEAL_MAX_DIST] away from the exit.
+	 *  3. It is [mIdealDistRange[0], mIdealDistRange[1]] away from the exit.
 	 */
 	const array2i &dim = mFloorField.mDim;
 	const arrayNi &activeObs = mFloorField.mActiveObstacles;
-	const float IDEAL_MIN_DIST = 2.f, IDEAL_MAX_DIST = 6.f;
 	float minDist = FLT_MAX;
 	arrayNi possibleCoords;
 
@@ -284,7 +379,7 @@ void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent, const std::unif
 		if (mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT) {
 			if (curIndex == convertTo1D(agent.mPos))
 				continue;
-			if (mFloorField.mCells[curIndex] < IDEAL_MIN_DIST || mFloorField.mCells[curIndex] > IDEAL_MAX_DIST)
+			if (mFloorField.mCells[curIndex] < mIdealDistRange[0] || mFloorField.mCells[curIndex] > mIdealDistRange[1])
 				continue;
 
 			array2i cell = { (int)curIndex % dim[0], (int)curIndex / dim[0] };
@@ -461,6 +556,7 @@ bool ObstacleRemovalModel::moveVolunteer(Agent &agent, const std::uniform_real_d
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL && mAgentManager.mPool[i].mPos != agent.mPos)
 			customizeFloorField(mAgentManager.mPool[i]);
 	}
+	mFloorField.calcPriority(mAlpha);
 
 	/*
 	 * Check if the task is done.

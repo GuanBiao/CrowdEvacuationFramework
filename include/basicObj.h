@@ -16,18 +16,19 @@ public:
 
 class Obstacle {
 public:
-	Obstacle() : mPos({ 0, 0 }), mIsAssigned(false), mMovable(false), mIsActive(false) {}
+	Obstacle() : mPos({ 0, 0 }), mMovable(false), mIsActive(false), mIsAssigned(false) {}
 
 	array2i mPos;
 	bool mMovable;
 	bool mIsActive;
 	///
 	bool mIsAssigned; // true if some agent ever moves it, false otherwise
+	float mPriority;
 };
 
 class Agent {
 public:
-	Agent() : mPos({ 0, 0 }), mFacingDir({ 0.f, 0.f }), mInChargeOf(STATE_NULL), mIsActive(false) {}
+	Agent() : mPos({ 0, 0 }), mFacingDir({ 0.f, 0.f }), mIsActive(false), mInChargeOf(STATE_NULL) {}
 
 	array2i mPos;
 	array2f mFacingDir;

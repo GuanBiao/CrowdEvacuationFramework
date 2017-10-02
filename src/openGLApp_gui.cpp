@@ -7,7 +7,14 @@ void OpenGLApp::createGUI() {
 	glui->add_checkbox("Enable Colormap", &mOpenGLApp->mFlgEnableColormap, 1, gluiCallback);
 	glui->add_checkbox("Show Grid", &mOpenGLApp->mFlgShowGrid, 2, gluiCallback);
 	GLUI_Spinner *spinner = glui->add_spinner("Simulation Speed", GLUI_SPINNER_FLOAT, &mOpenGLApp->mExecutionSpeed, 3, gluiCallback);
+	spinner->set_float_limits(0.f, 1.f, GLUI_LIMIT_CLAMP);
 	glui->add_separator();
+
+	GLUI_Panel *panel = glui->add_panel("Ideal Distance Range", GLUI_PANEL_EMBOSSED);
+	glui->add_edittext_to_panel(panel, "Min", GLUI_EDITTEXT_FLOAT, &mOpenGLApp->mModel.mIdealDistRange[0], 3, gluiCallback);
+	glui->add_edittext_to_panel(panel, "Max", GLUI_EDITTEXT_FLOAT, &mOpenGLApp->mModel.mIdealDistRange[1], 3, gluiCallback);
+	glui->add_separator();
+
 	glui->add_button("Edit Agents", 4, gluiCallback);
 	glui->add_button("Edit Exits", 5, gluiCallback);
 	glui->add_button("Edit Movable Obstacles", 6, gluiCallback);
@@ -17,8 +24,6 @@ void OpenGLApp::createGUI() {
 	glui->add_button("Reset", 10, gluiCallback);
 	glui->add_button("Save", 11, gluiCallback);
 	glui->add_button("Quit", -1, exit);
-
-	spinner->set_float_limits(0.f, 1.f, GLUI_LIMIT_CLAMP);
 }
 
 void OpenGLApp::gluiCallback(int id) {
@@ -32,7 +37,7 @@ void OpenGLApp::gluiCallback(int id) {
 		mOpenGLApp->mModel.mFloorField.mFlgShowGrid = mOpenGLApp->mFlgShowGrid;
 		break;
 
-	case 3: // adjust simulation speed
+	case 3: // adjust simulation speed, or modify the ideal distance range
 		mOpenGLApp->mFlgRunApp = false;
 		mOpenGLApp->mFlgEditAgents = false;
 		mOpenGLApp->mFlgEditExits = false;

@@ -41,6 +41,7 @@ public:
 	///
 	void print() const;
 	void evaluateCells( const array2i &root, arrayNf &floorField ) const;
+	void calcPriority( float alpha );
 
 	/*
 	 * Editing.

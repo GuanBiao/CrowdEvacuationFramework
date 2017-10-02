@@ -8,6 +8,12 @@
 
 class ObstacleRemovalModel : public CellularAutomatonModel {
 public:
+	array2f mIdealDistRange;
+	float mAlpha;
+
+	ObstacleRemovalModel();
+	void read( const char *fileName );
+	void save() const;
 	void update();
 	///
 	void print() const;

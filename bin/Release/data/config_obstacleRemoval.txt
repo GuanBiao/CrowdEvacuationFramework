@@ -1,0 +1,2 @@
+IDEAL_DIST_RANGE 2 6
+ALPHA            1

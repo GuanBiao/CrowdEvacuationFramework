@@ -242,6 +242,48 @@ void FloorField::evaluateCells(const array2i &root, arrayNf &floorField) const {
 	}
 }
 
+void FloorField::calcPriority(float alpha) {
+	for (const auto &i : mActiveObstacles) {
+		if (mPool_obstacle[i].mMovable && !mPool_obstacle[i].mIsAssigned) {
+			int curIndex = convertTo1D(mPool_obstacle[i].mPos), numEmptyNeighbors = 0;
+
+			// right cell
+			if (mPool_obstacle[i].mPos[0] + 1 < mDim[0] && mCellStates[curIndex + 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// left cell
+			if (mPool_obstacle[i].mPos[0] - 1 >= 0 && mCellStates[curIndex - 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// up cell
+			if (mPool_obstacle[i].mPos[1] + 1 < mDim[1] && mCellStates[curIndex + mDim[0]] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// down cell
+			if (mPool_obstacle[i].mPos[1] - 1 >= 0 && mCellStates[curIndex - mDim[0]] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// upper right cell
+			if (mPool_obstacle[i].mPos[0] + 1 < mDim[0] && mPool_obstacle[i].mPos[1] + 1 < mDim[1] && mCellStates[curIndex + mDim[0] + 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// lower left cell
+			if (mPool_obstacle[i].mPos[0] - 1 >= 0 && mPool_obstacle[i].mPos[1] - 1 >= 0 && mCellStates[curIndex - mDim[0] - 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// lower right cell
+			if (mPool_obstacle[i].mPos[0] + 1 < mDim[0] && mPool_obstacle[i].mPos[1] - 1 >= 0 && mCellStates[curIndex - mDim[0] + 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			// upper left cell
+			if (mPool_obstacle[i].mPos[0] - 1 >= 0 && mPool_obstacle[i].mPos[1] + 1 < mDim[1] && mCellStates[curIndex + mDim[0] - 1] == TYPE_EMPTY)
+				numEmptyNeighbors++;
+
+			mPool_obstacle[i].mPriority = numEmptyNeighbors == 0 ? 0.f : alpha / mCells[curIndex] + numEmptyNeighbors / 8.f;
+		}
+	}
+}
+
 boost::optional<array2i> FloorField::isExisting_exit(const array2i &coord) const {
 	for (size_t i = 0; i < mExits.size(); i++) {
 		auto j = std::find(mExits[i].mPos.begin(), mExits[i].mPos.end(), coord);

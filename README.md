@@ -22,6 +22,8 @@
 
 2017/09/25: Modify the mechanism about moving volunteers and determining the destination.
 
+2017/10/02: Add the priority for every movable obstacle.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)
