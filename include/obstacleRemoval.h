@@ -17,6 +17,7 @@ public:
 	void update();
 	///
 	void print() const;
+	void print( arrayNf &cells ) const;
 
 	/*
 	 * Drawing.
@@ -25,14 +26,17 @@ public:
 	void setTextures();
 
 private:
+	std::string mPathsToTexture[2];
 	GLuint mTextures[2];
 
 	void selectMovableObstacle( int i, const std::uniform_real_distribution<float> &distribution );
 	void selectCellToPutObstacle( Agent &agent, const std::uniform_real_distribution<float> &distribution );
 	bool moveVolunteer( Agent &agent, const std::uniform_real_distribution<float> &distribution );
 	bool moveAgent( Agent &agent, const std::uniform_real_distribution<float> &distribution );
-	void customizeFloorField( Agent &agent );
+	void customizeFloorField( Agent &agent ) const;
+	bool checkMovingObstaclesNearby( int index ) const;
 	int getFreeCell( const arrayNf &cells, const array2i &pos, const std::uniform_real_distribution<float> &distribution, float vmax, float vmin = -1.f );
+	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2, bool (*cond)( const array2i &, const array2i & ), const std::uniform_real_distribution<float> &distribution, float vmax, float vmin = -1.f );
 };
 
 #endif

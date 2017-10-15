@@ -11,7 +11,9 @@ void ObstacleRemovalModel::read(const char *fileName) {
 
 	std::string key;
 	while (ifs >> key) {
-		if (key.compare("IDEAL_DIST_RANGE") == 0)
+		if (key.compare("TEXTURE") == 0)
+			ifs >> mPathsToTexture[0] >> mPathsToTexture[1];
+		else if (key.compare("IDEAL_DIST_RANGE") == 0)
 			ifs >> mIdealDistRange[0] >> mIdealDistRange[1];
 		else if (key.compare("ALPHA") == 0)
 			ifs >> mAlpha;
@@ -29,6 +31,7 @@ void ObstacleRemovalModel::save() const {
 	strftime(buffer, 15, "%y%m%d%H%M%S", &timeInfo);
 
 	std::ofstream ofs("./data/config_obstacleRemoval_saved_" + std::string(buffer) + ".txt", std::ios::out);
+	ofs << "TEXTURE          " << mPathsToTexture[0] << " " << mPathsToTexture[1] << endl;
 	ofs << "IDEAL_DIST_RANGE " << mIdealDistRange[0] << " " << mIdealDistRange[1] << endl;
 	ofs << "ALPHA            " << mAlpha << endl;
 	ofs.close();
@@ -167,6 +170,20 @@ void ObstacleRemovalModel::print() const {
 	cout << "--" << endl;
 }
 
+void ObstacleRemovalModel::print(arrayNf &cells) const {
+	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mFloorField.mDim[0]; x++) {
+			if (cells[convertTo1D(x, y)] == INIT_WEIGHT)
+				printf("  ?   ");
+			else if (cells[convertTo1D(x, y)] == OBSTACLE_WEIGHT)
+				printf("  -   ");
+			else
+				printf("%5.1f ", cells[convertTo1D(x, y)]);
+		}
+		printf("\n");
+	}
+}
+
 void ObstacleRemovalModel::draw() const {
 	/*
 	 * Draw the scene.
@@ -193,7 +210,7 @@ void ObstacleRemovalModel::setTextures() {
 	ILubyte *data;
 	glGenTextures(2, mTextures);
 
-	ilLoadImage("./data/Fearful_Face_Emoji.png");
+	ilLoadImage(mPathsToTexture[0].c_str());
 	data = ilGetData();
 	assert(data);
 	glBindTexture(GL_TEXTURE_2D, mTextures[0]);
@@ -201,7 +218,7 @@ void ObstacleRemovalModel::setTextures() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	ilLoadImage("./data/Persevering_Face_Emoji.png");
+	ilLoadImage(mPathsToTexture[1].c_str());
 	data = ilGetData();
 	assert(data);
 	glBindTexture(GL_TEXTURE_2D, mTextures[1]);
@@ -329,7 +346,7 @@ void ObstacleRemovalModel::selectMovableObstacle(int i, const std::uniform_real_
 
 	// upper left cell
 	coord = { agent.mPos[0] - 1, agent.mPos[1] + 1 };
-	if (agent.mPos[1] - 1 >= 0 && agent.mPos[1] + 1 < mFloorField.mDim[1] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
+	if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] + 1 < mFloorField.mDim[1] && mCellStates[convertTo1D(coord)] == TYPE_MOVABLE_OBSTACLE) {
 		index = *mFloorField.isExisting_obstacle(coord, true);
 		if (!mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mIsAssigned) {
 			if (mFloorField.mPool_obstacle[mFloorField.mActiveObstacles[index]].mPriority == maxPriority)
@@ -468,22 +485,23 @@ void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent, const std::unif
 
 bool ObstacleRemovalModel::moveVolunteer(Agent &agent, const std::uniform_real_distribution<float> &distribution) {
 	Obstacle &obstacle = mFloorField.mPool_obstacle[agent.mInChargeOf];
-	const array2i &dim = mFloorField.mDim;
-	int curIndex = convertTo1D(obstacle.mPos);
-	int adjIndex = getFreeCell(agent.mCells, obstacle.mPos, distribution, agent.mCells[curIndex]); // no backstepping is allowed
+	int curIndex = convertTo1D(obstacle.mPos), adjIndex;
 
+	adjIndex = getFreeCell(agent.mCells, obstacle.mPos, distribution, agent.mCells[curIndex]); // no backstepping is allowed
 	while (true) {
 		/*
 		 * Decide the cell where the obstacle will be moved.
 		 */
 		array2i desired;
 		if (adjIndex != STATE_NULL)
-			desired = { adjIndex % dim[0], adjIndex / dim[0] };
+			desired = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 		else { // cells that have lower values are all unavailable, so ...
 			// move the volunteer to let the obstacle be moved
-			adjIndex = getFreeCell(agent.mCells, obstacle.mPos, distribution, FLT_MAX, agent.mCells[convertTo1D(agent.mPos)]);
-			if (adjIndex != STATE_NULL && agent.mCells[adjIndex] - agent.mCells[convertTo1D(agent.mPos)] < 2.f) {
-				desired = { adjIndex % dim[0], adjIndex / dim[0] };
+			adjIndex = getFreeCell_if(agent.mCells, obstacle.mPos, agent.mPos,
+				[](const array2i &pos1, const array2i &pos2) { return abs(pos1[0] - pos2[0]) < 2 && abs(pos1[1] - pos2[1]) < 2; },
+				distribution, INIT_WEIGHT, agent.mCells[convertTo1D(agent.mPos)]);
+			if (adjIndex != STATE_NULL) {
+				desired = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 				mCellStates[convertTo1D(agent.mPos)] = TYPE_EMPTY;
 				mCellStates[adjIndex] = TYPE_AGENT;
 				agent.mPos = desired;
@@ -492,9 +510,11 @@ bool ObstacleRemovalModel::moveVolunteer(Agent &agent, const std::uniform_real_d
 			}
 
 			// or pull the obstacle out
-			adjIndex = getFreeCell(agent.mCells, agent.mPos, distribution, FLT_MAX);
+			adjIndex = getFreeCell_if(agent.mCells, agent.mPos, obstacle.mPos,
+				[](const array2i &pos1, const array2i &pos2) { return abs(pos1[0] - pos2[0]) >= 2 || abs(pos1[1] - pos2[1]) >= 2; },
+				distribution, INIT_WEIGHT);
 			if (adjIndex != STATE_NULL) {
-				desired = { adjIndex % dim[0], adjIndex / dim[0] };
+				desired = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 				mCellStates[curIndex] = TYPE_EMPTY;
 				mCellStates[convertTo1D(agent.mPos)] = TYPE_MOVABLE_OBSTACLE;
 				mCellStates[adjIndex] = TYPE_AGENT;
@@ -568,12 +588,19 @@ bool ObstacleRemovalModel::moveVolunteer(Agent &agent, const std::uniform_real_d
 }
 
 bool ObstacleRemovalModel::moveAgent(Agent &agent, const std::uniform_real_distribution<float> &distribution) {
-	int curIndex = convertTo1D(agent.mPos);
-	int adjIndex = getFreeCell(mFloorField.mCells, agent.mPos, distribution, mFloorField.mCells[curIndex]); // no backstepping is allowed
+	int curIndex = convertTo1D(agent.mPos), adjIndex;
 
 	/*
 	 * Decide the cell where the agent will move.
 	 */
+	if (!checkMovingObstaclesNearby(curIndex)) { // if the agent isn't in the neighborhood of moving obstacles, it should yield to volunteers
+		adjIndex = getFreeCell(mFloorField.mCells, agent.mPos, distribution, mFloorField.mCells[curIndex]); // no backstepping is allowed
+		while (adjIndex != STATE_NULL && checkMovingObstaclesNearby(adjIndex))
+			adjIndex = getFreeCell(mFloorField.mCells, agent.mPos, distribution, mFloorField.mCells[curIndex], mFloorField.mCells[adjIndex]);
+	}
+	else
+		adjIndex = getFreeCell(mFloorField.mCells, agent.mPos, distribution, INIT_WEIGHT); // backstepping is allowed
+
 	if (adjIndex != STATE_NULL) {
 		mCellStates[curIndex] = TYPE_EMPTY;
 		agent.mFacingDir = norm(agent.mPos, array2i{ adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] });
@@ -586,7 +613,7 @@ bool ObstacleRemovalModel::moveAgent(Agent &agent, const std::uniform_real_distr
 		return STATE_FAILED;
 }
 
-void ObstacleRemovalModel::customizeFloorField(Agent &agent) {
+void ObstacleRemovalModel::customizeFloorField(Agent &agent) const {
 	agent.mCells.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	std::fill(agent.mCells.begin(), agent.mCells.end(), INIT_WEIGHT);
 	agent.mCells[convertTo1D(agent.mDest)] = EXIT_WEIGHT; // view mDest as an exit
@@ -600,6 +627,50 @@ void ObstacleRemovalModel::customizeFloorField(Agent &agent) {
 	}
 
 	mFloorField.evaluateCells(agent.mDest, agent.mCells);
+}
+
+bool ObstacleRemovalModel::checkMovingObstaclesNearby(int index) const {
+	for (const auto &i : mAgentManager.mActiveAgents) {
+		if (mAgentManager.mPool[i].mInChargeOf == STATE_NULL)
+			continue;
+
+		const array2i &coord = mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mPos;
+		int curIndex = convertTo1D(coord);
+
+		// right cell
+		if (coord[0] + 1 < mFloorField.mDim[0] && index == curIndex + 1)
+			return true;
+
+		// left cell
+		if (coord[0] - 1 >= 0 && index == curIndex - 1)
+			return true;
+
+		// up cell
+		if (coord[1] + 1 < mFloorField.mDim[1] && index == curIndex + mFloorField.mDim[0])
+			return true;
+
+		// down cell
+		if (coord[1] - 1 >= 0 && index == curIndex - mFloorField.mDim[0])
+			return true;
+
+		// upper right cell
+		if (coord[0] + 1 < mFloorField.mDim[0] && coord[1] + 1 < mFloorField.mDim[1] && index == curIndex + mFloorField.mDim[0] + 1)
+			return true;
+
+		// lower left cell
+		if (coord[0] - 1 >= 0 && coord[1] - 1 >= 0 && index == curIndex - mFloorField.mDim[0] - 1)
+			return true;
+
+		// lower right cell
+		if (coord[0] + 1 < mFloorField.mDim[0] && coord[1] - 1 >= 0 && index == curIndex - mFloorField.mDim[0] + 1)
+			return true;
+
+		// upper left cell
+		if (coord[0] - 1 >= 0 && coord[1] + 1 < mFloorField.mDim[1] && index == curIndex + mFloorField.mDim[0] - 1)
+			return true;
+	}
+
+	return false;
 }
 
 int ObstacleRemovalModel::getFreeCell(const arrayNf &cells, const array2i &pos, const std::uniform_real_distribution<float> &distribution, float vmax, float vmin) {
@@ -699,6 +770,121 @@ int ObstacleRemovalModel::getFreeCell(const arrayNf &cells, const array2i &pos, 
 	// upper left cell
 	adjIndex = curIndex + mFloorField.mDim[0] - 1;
 	if (pos[0] - 1 >= 0 && pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	/*
+	 * Decide the cell.
+	 */
+	if (possibleCoords.size() != 0)
+		return possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
+	else
+		return STATE_NULL;
+}
+
+int ObstacleRemovalModel::getFreeCell_if(const arrayNf &cells, const array2i &pos1, const array2i &pos2, bool (*cond)(const array2i &, const array2i &), const std::uniform_real_distribution<float> &distribution, float vmax, float vmin) {
+	int curIndex = convertTo1D(pos1), adjIndex;
+
+	/*
+	 * Find available cells. (Moore neighborhood)
+	 */
+	float lowestCellValue = vmax;
+	arrayNi possibleCoords;
+	possibleCoords.reserve(8);
+
+	// right cell
+	adjIndex = curIndex + 1;
+	if (pos1[0] + 1 < mFloorField.mDim[0] && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] + 1, pos1[1] }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// left cell
+	adjIndex = curIndex - 1;
+	if (pos1[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] - 1, pos1[1] }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// up cell
+	adjIndex = curIndex + mFloorField.mDim[0];
+	if (pos1[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0], pos1[1] + 1 }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// down cell
+	adjIndex = curIndex - mFloorField.mDim[0];
+	if (pos1[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0], pos1[1] - 1 }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// upper right cell
+	adjIndex = curIndex + mFloorField.mDim[0] + 1;
+	if (pos1[0] + 1 < mFloorField.mDim[0] && pos1[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] + 1, pos1[1] + 1 }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// lower left cell
+	adjIndex = curIndex - mFloorField.mDim[0] - 1;
+	if (pos1[0] - 1 >= 0 && pos1[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] - 1, pos1[1] - 1 }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// lower right cell
+	adjIndex = curIndex - mFloorField.mDim[0] + 1;
+	if (pos1[0] + 1 < mFloorField.mDim[0] && pos1[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] + 1, pos1[1] - 1 }, pos2)) {
+		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
+			possibleCoords.push_back(adjIndex);
+		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {
+			lowestCellValue = cells[adjIndex];
+			possibleCoords.clear();
+			possibleCoords.push_back(adjIndex);
+		}
+	}
+
+	// upper left cell
+	adjIndex = curIndex + mFloorField.mDim[0] - 1;
+	if (pos1[0] - 1 >= 0 && pos1[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY && (*cond)(array2i{ pos1[0] - 1, pos1[1] + 1 }, pos2)) {
 		if (lowestCellValue == cells[adjIndex] && cells[curIndex] != cells[adjIndex])
 			possibleCoords.push_back(adjIndex);
 		else if (lowestCellValue > cells[adjIndex] && cells[adjIndex] > vmin) {

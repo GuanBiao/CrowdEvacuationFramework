@@ -24,6 +24,8 @@
 
 2017/10/02: Add the priority for every movable obstacle.
 
+2017/10/12: Agents yield to volunteers.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

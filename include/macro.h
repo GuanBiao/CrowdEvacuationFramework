@@ -8,9 +8,9 @@
 /*
  * Define constants for the floor field.
  */
-#define INIT_WEIGHT             FLT_MAX
+#define INIT_WEIGHT             5000.f
 #define EXIT_WEIGHT             0.f
-#define OBSTACLE_WEIGHT         5000.f
+#define OBSTACLE_WEIGHT         FLT_MAX
 
 /*
  * Define cell states.

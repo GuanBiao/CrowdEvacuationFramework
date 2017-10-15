@@ -1,8 +1,8 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	//mRNG.seed(std::random_device{}());
-	mRNG.seed(0);
+	mRNG.seed(std::random_device{}());
+	//mRNG.seed(0);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
 
@@ -223,8 +223,14 @@ void CellularAutomatonModel::update() {
 void CellularAutomatonModel::print() const {
 	cout << "Floor field:" << endl;
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mFloorField.mDim[0]; x++)
-			printf("%6.1f ", mFloorField.mCells[convertTo1D(x, y)]);
+		for (int x = 0; x < mFloorField.mDim[0]; x++) {
+			if (mFloorField.mCells[convertTo1D(x, y)] == INIT_WEIGHT)
+				printf("  ?   ");
+			else if (mFloorField.mCells[convertTo1D(x, y)] == OBSTACLE_WEIGHT)
+				printf("  -   ");
+			else
+				printf("%5.1f ", mFloorField.mCells[convertTo1D(x, y)]);
+		}
 		printf("\n");
 	}
 

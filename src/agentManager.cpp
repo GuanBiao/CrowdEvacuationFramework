@@ -47,7 +47,7 @@ void AgentManager::save() const {
 	std::ofstream ofs("./data/config_agent_saved_" + std::string(buffer) + ".txt", std::ios::out);
 
 	ofs << "AGENT      " << mActiveAgents.size() << endl;
-	ofs << "           " << true << endl; // indicate agent locations are provided as follows
+	ofs << "           " << !mActiveAgents.empty() << endl; // indicate agent locations are provided as follows
 	for (const auto &i : mActiveAgents)
 		ofs << "           " << mPool[i].mPos[0] << " " << mPool[i].mPos[1] << endl;
 
