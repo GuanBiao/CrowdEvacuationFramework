@@ -26,7 +26,7 @@ public:
 	 * Editing.
 	 */
 	void editExit( const array2f &worldCoord );
-	void editObstacle( const array2f &worldCoord, bool movable );
+	void editObstacle( const array2f &worldCoord, bool isMovable );
 	void editAgent( const array2f &worldCoord );
 
 	/*
@@ -39,11 +39,14 @@ protected:
 	arrayNi mCellStates; // use [y-coordinate * mFloorField.mDim[0] + x-coordinate] to access elements
 	double mElapsedTime;
 	std::mt19937 mRNG;
+	std::uniform_real_distribution<float> mDistribution;
 	///
 	bool mFlgUpdateStatic;
 	bool mFlgAgentEdited;
 
 	void setCellStates();
+	int getFreeCell( const arrayNf &cells, const array2i &pos, float vmax, float vmin = -1.f );
+	int getMinRandomly( std::vector<std::pair<int, float>> &vec );
 	///
 	inline int convertTo1D( int x, int y ) const { return y * mFloorField.mDim[0] + x; }
 	inline int convertTo1D( const array2i &coord ) const { return coord[1] * mFloorField.mDim[0] + coord[0]; }

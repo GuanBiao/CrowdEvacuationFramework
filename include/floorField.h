@@ -41,16 +41,15 @@ public:
 	///
 	void print() const;
 	void evaluateCells( const array2i &root, arrayNf &floorField ) const;
-	void calcPriority( float alpha );
 
 	/*
 	 * Editing.
 	 */
 	boost::optional<array2i> isExisting_exit( const array2i &coord ) const;
-	boost::optional<int> isExisting_obstacle( const array2i &coord, bool movable ) const;
+	boost::optional<int> isExisting_obstacle( const array2i &coord, bool isMovable ) const;
 	void editExit( const array2i &coord );
-	void editObstacle( const array2i &coord, bool movable );
-	int addObstacle( const array2i &coord, bool movable ); // push_back the return value to mActiveObstacles to actually add an obstacle
+	void editObstacle( const array2i &coord, bool isMovable );
+	int addObstacle( const array2i &coord, bool isMovable ); // push_back the return value to mActiveObstacles to actually add an obstacle
 	void deleteObstacle( int i );
 
 	/*

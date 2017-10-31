@@ -3,6 +3,7 @@
 CellularAutomatonModel::CellularAutomatonModel() {
 	mRNG.seed(std::random_device{}());
 	//mRNG.seed(0);
+	mDistribution = std::uniform_real_distribution<float>(0.f, 1.f);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
 
@@ -53,12 +54,10 @@ void CellularAutomatonModel::update() {
 	else
 		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, false);
 
-
 	/*
 	 * Check whether the agent arrives at any exit.
 	 */
 	for (size_t i = 0; i < mAgentManager.mActiveAgents.size();) {
-		bool updated = false;
 		for (auto &exit : mFloorField.mExits) {
 			for (const auto &e : exit.mPos) {
 				if (mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos == e) {
@@ -68,19 +67,15 @@ void CellularAutomatonModel::update() {
 					exit.mNumPassedAgents++;
 					exit.mAccumulatedTimesteps += mTimesteps;
 
-					updated = true;
 					goto label;
 				}
 			}
 		}
+		i++;
 
-		label:
-		if (!updated)
-			i++;
+	label:;
 	}
 	mTimesteps++;
-
-	std::uniform_real_distribution<float> distribution(0.f, 1.f);
 
 	/*
 	 * Handle agent movement.
@@ -91,122 +86,13 @@ void CellularAutomatonModel::update() {
 	std::shuffle(updatingOrder.begin(), updatingOrder.end(), mRNG); // randomly generate the updating order
 
 	for (const auto &i : updatingOrder) {
-		Agent &agent = mAgentManager.mPool[i];
-		const array2i &dim = mFloorField.mDim;
-		int curIndex = convertTo1D(agent.mPos), adjIndex;
-
-		if (distribution(mRNG) > mAgentManager.mPanicProb) {
-			/*
-			 * Find available cells with the lowest cell value.
-			 */
-			float lowestCellValue = mFloorField.mCells[curIndex]; // no backstepping is allowed
-			arrayNi possibleCoords;
-			possibleCoords.reserve(8);
-
-			// right cell
-			adjIndex = curIndex + 1;
-			if (agent.mPos[0] + 1 < dim[0] && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			// left cell
-			adjIndex = curIndex - 1;
-			if (agent.mPos[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			// up cell
-			adjIndex = curIndex + dim[0];
-			if (agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			// down cell
-			adjIndex = curIndex - dim[0];
-			if (agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			// upper right cell
-			adjIndex = curIndex + dim[0] + 1;
-			if (agent.mPos[0] + 1 < dim[0] && agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			// lower left cell
-			adjIndex = curIndex - dim[0] - 1;
-			if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-			
-			// lower right cell
-			adjIndex = curIndex - dim[0] + 1;
-			if (agent.mPos[0] + 1 < dim[0] && agent.mPos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-			
-			// upper left cell
-			adjIndex = curIndex + dim[0] - 1;
-			if (agent.mPos[0] - 1 >= 0 && agent.mPos[1] + 1 < dim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-				if (lowestCellValue == mFloorField.mCells[adjIndex] && mFloorField.mCells[curIndex] != mFloorField.mCells[adjIndex])
-					possibleCoords.push_back(adjIndex);
-				else if (lowestCellValue > mFloorField.mCells[adjIndex]) {
-					lowestCellValue = mFloorField.mCells[adjIndex];
-					possibleCoords.clear();
-					possibleCoords.push_back(adjIndex);
-				}
-			}
-
-			/*
-			 * Decide the cell where the agent will move.
-			 */
-			if (possibleCoords.size() != 0) {
+		if (mDistribution(mRNG) > mAgentManager.mPanicProb) {
+			int curIndex = convertTo1D(mAgentManager.mPool[i].mPos);
+			int adjIndex = getFreeCell(mFloorField.mCells, mAgentManager.mPool[i].mPos, mFloorField.mCells[curIndex]); // no backstepping is allowed
+			if (adjIndex != STATE_NULL) {
 				mCellStates[curIndex] = TYPE_EMPTY;
-				adjIndex = possibleCoords[(int)floor(distribution(mRNG) * possibleCoords.size())];
-				agent.mPos = { adjIndex % dim[0], adjIndex / dim[0] };
 				mCellStates[adjIndex] = TYPE_AGENT;
+				mAgentManager.mPool[i].mPos = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 			}
 		}
 	}
@@ -216,6 +102,9 @@ void CellularAutomatonModel::update() {
 
 	printf("Timestep %4d: %4d agent(s) having not left (%fs)\n", mTimesteps, mAgentManager.mActiveAgents.size(), mElapsedTime);
 
+	/*
+	 * All agents have left.
+	 */
 	if (mAgentManager.mActiveAgents.size() == 0)
 		showExitStatistics();
 }
@@ -225,11 +114,11 @@ void CellularAutomatonModel::print() const {
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++) {
 			if (mFloorField.mCells[convertTo1D(x, y)] == INIT_WEIGHT)
-				printf("  ?   ");
+				printf(" ??  ");
 			else if (mFloorField.mCells[convertTo1D(x, y)] == OBSTACLE_WEIGHT)
-				printf("  -   ");
+				printf(" --  ");
 			else
-				printf("%5.1f ", mFloorField.mCells[convertTo1D(x, y)]);
+				printf("%4.1f ", mFloorField.mCells[convertTo1D(x, y)]);
 		}
 		printf("\n");
 	}
@@ -237,7 +126,7 @@ void CellularAutomatonModel::print() const {
 	cout << "Cell States:" << endl;
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++)
-			printf("%3d ", mCellStates[convertTo1D(x, y)]);
+			printf("%2d ", mCellStates[convertTo1D(x, y)]);
 		printf("\n");
 	}
 }
@@ -270,7 +159,7 @@ void CellularAutomatonModel::editExit(const array2f &worldCoord) {
 	}
 }
 
-void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool movable) {
+void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool isMovable) {
 	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) };
 	int index = convertTo1D(coord);
 
@@ -278,9 +167,9 @@ void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool movabl
 		return;
 	// only cells which are not occupied by agents or exits can be edited
 	else if (mCellStates[index] != TYPE_AGENT && !mFloorField.isExisting_exit(coord)) {
-		if (movable && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE)
+		if (isMovable && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE)
 			mFloorField.editObstacle(coord, true);
-		else if (!movable && mCellStates[index] != TYPE_MOVABLE_OBSTACLE)
+		else if (!isMovable && mCellStates[index] != TYPE_MOVABLE_OBSTACLE)
 			mFloorField.editObstacle(coord, false);
 		mFlgUpdateStatic = true;
 		setCellStates();
@@ -312,7 +201,7 @@ void CellularAutomatonModel::setCellStates() {
 
 	// cell occupied by an obstacle
 	for (const auto &i : mFloorField.mActiveObstacles) {
-		if (mFloorField.mPool_obstacle[i].mMovable)
+		if (mFloorField.mPool_obstacle[i].mIsMovable)
 			mCellStates[convertTo1D(mFloorField.mPool_obstacle[i].mPos)] = TYPE_MOVABLE_OBSTACLE;
 		else
 			mCellStates[convertTo1D(mFloorField.mPool_obstacle[i].mPos)] = TYPE_IMMOVABLE_OBSTACLE;
@@ -321,4 +210,84 @@ void CellularAutomatonModel::setCellStates() {
 	// cell occupied by an agent
 	for (const auto &i : mAgentManager.mActiveAgents)
 		mCellStates[convertTo1D(mAgentManager.mPool[i].mPos)] = TYPE_AGENT;
+}
+
+int CellularAutomatonModel::getFreeCell(const arrayNf &cells, const array2i &pos, float vmax, float vmin) {
+	int curIndex = convertTo1D(pos), adjIndex;
+
+	/*
+	 * Find available cells. (Moore neighborhood)
+	 */
+	std::vector<std::pair<int, float>> possibleCoords;
+	possibleCoords.reserve(8);
+
+	// right cell
+	adjIndex = curIndex + 1;
+	if (pos[0] + 1 < mFloorField.mDim[0] && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// left cell
+	adjIndex = curIndex - 1;
+	if (pos[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// up cell
+	adjIndex = curIndex + mFloorField.mDim[0];
+	if (pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// down cell
+	adjIndex = curIndex - mFloorField.mDim[0];
+	if (pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// upper right cell
+	adjIndex = curIndex + mFloorField.mDim[0] + 1;
+	if (pos[0] + 1 < mFloorField.mDim[0] && pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// lower left cell
+	adjIndex = curIndex - mFloorField.mDim[0] - 1;
+	if (pos[0] - 1 >= 0 && pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// lower right cell
+	adjIndex = curIndex - mFloorField.mDim[0] + 1;
+	if (pos[0] + 1 < mFloorField.mDim[0] && pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	// upper left cell
+	adjIndex = curIndex + mFloorField.mDim[0] - 1;
+	if (pos[0] - 1 >= 0 && pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
+		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	}
+
+	/*
+	 * Decide the cell.
+	 */
+	return getMinRandomly(possibleCoords);
+}
+
+int CellularAutomatonModel::getMinRandomly(std::vector<std::pair<int, float>> &vec) {
+	std::sort(vec.begin(), vec.end(), [](const std::pair<int, float> &i, const std::pair<int, float> &j) { return i.second < j.second; });
+	for (int i = vec.size() - 1; i >= 0; i--) {
+		if (vec[i].second == vec[0].second)
+			return vec[(int)(mDistribution(mRNG) * (i + 1))].first;
+	}
+	return STATE_NULL;
 }

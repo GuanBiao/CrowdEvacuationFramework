@@ -29,9 +29,9 @@ bool AgentManager::read(const char *fileName) {
 			ifs >> mPanicProb;
 	}
 
-	mFlgEnableColormap = false;
-
 	ifs.close();
+
+	mFlgEnableColormap = false;
 
 	return isAgentProvided;
 }
@@ -90,6 +90,7 @@ int AgentManager::addAgent(const array2i &coord) {
 	mPool[i].mFacingDir = { 0.f, 0.f };
 	mPool[i].mIsActive = true;
 	mPool[i].mInChargeOf = STATE_NULL;
+	mPool[i].mStrategy = { false, false };
 
 	return i;
 }

@@ -1,3 +1,4 @@
-TEXTURE          ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
-IDEAL_DIST_RANGE 2 6
-ALPHA            1
+TEXTURE            ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
+IDEAL_DIST_RANGE   2 6
+ALPHA              1
+INIT_STRAT_DENSITY 0.5 0.5

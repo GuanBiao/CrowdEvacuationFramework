@@ -2,8 +2,6 @@
 #define __MACRO_H__
 
 #define STATE_NULL              -1
-#define STATE_SUCCESSFUL        true
-#define STATE_FAILED            false
 
 /*
  * Define constants for the floor field.
@@ -26,5 +24,11 @@
  */
 #define DIR_HORIZONTAL          1
 #define DIR_VERTICAL            2
+
+/*
+ * Define flags for the movable obstacle map.
+ */
+#define STATE_IDLE              -2
+#define STATE_DONE              -3
 
 #endif

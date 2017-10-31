@@ -131,6 +131,10 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 	case 'n': // advance one step
 		mOpenGLApp->mModel.update();
 		break;
+	case 'v': // show strategies in different modes
+		mOpenGLApp->mModel.mFlgStratVisMode = (++mOpenGLApp->mModel.mFlgStratVisMode) % 3;
+		cout << "mFlgStratVisMode is switched to " << mOpenGLApp->mModel.mFlgStratVisMode << endl;
+		break;
 	case 'r': // take a screenshot
 		std::string filename = "./screenshot/timestep_" + std::to_string(mOpenGLApp->mModel.mTimesteps) + ".bmp";
 		if (CreateDirectory("screenshot", NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {

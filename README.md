@@ -26,6 +26,8 @@
 
 2017/10/12: Agents yield to volunteers.
 
+2017/10/30: Prepare for the addition of game theory.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)
