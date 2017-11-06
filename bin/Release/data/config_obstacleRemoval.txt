@@ -1,4 +1,8 @@
-TEXTURE            ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
-IDEAL_DIST_RANGE   2 6
-ALPHA              1
-INIT_STRAT_DENSITY 0.5 0.5
+TEXTURE               ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
+IDEAL_DIST_RANGE      3 7
+ALPHA                 1
+INIT_STRATEGY_DENSITY 1 0
+RATIONALITY           1
+HERDING_COEFFICIENT   0.5
+COST                  1 1
+PROFIT                1

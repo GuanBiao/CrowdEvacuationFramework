@@ -1,8 +1,8 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	mRNG.seed(std::random_device{}());
-	//mRNG.seed(0);
+	//mRNG.seed(std::random_device{}());
+	mRNG.seed(0);
 	mDistribution = std::uniform_real_distribution<float>(0.f, 1.f);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
@@ -15,7 +15,9 @@ CellularAutomatonModel::CellularAutomatonModel() {
 		for (size_t i = 0; i < mAgentManager.mActiveAgents.capacity();) {
 			array2i coord{ x(mRNG), y(mRNG) };
 			// an agent should not initially occupy a cell which has been occupied by an exit, an obstacle or another agent
-			if (!mFloorField.isExisting_exit(coord) && !mFloorField.isExisting_obstacle(coord, true) && !mFloorField.isExisting_obstacle(coord, false) && !mAgentManager.isExisting(coord)) {
+			if (!mFloorField.isExisting_exit(coord) &&
+				!mFloorField.isExisting_obstacle(coord, true) && !mFloorField.isExisting_obstacle(coord, false) &&
+				!mAgentManager.isExisting(coord)) {
 				mAgentManager.mActiveAgents.push_back(mAgentManager.addAgent(coord));
 				i++;
 			}
@@ -88,7 +90,7 @@ void CellularAutomatonModel::update() {
 	for (const auto &i : updatingOrder) {
 		if (mDistribution(mRNG) > mAgentManager.mPanicProb) {
 			int curIndex = convertTo1D(mAgentManager.mPool[i].mPos);
-			int adjIndex = getFreeCell(mFloorField.mCells, mAgentManager.mPool[i].mPos, mFloorField.mCells[curIndex]); // no backstepping is allowed
+			int adjIndex = getFreeCell(mFloorField.mCells, mAgentManager.mPool[i].mPos, mFloorField.mCells[curIndex]); // backstepping is not allowed
 			if (adjIndex != STATE_NULL) {
 				mCellStates[curIndex] = TYPE_EMPTY;
 				mCellStates[adjIndex] = TYPE_AGENT;
@@ -136,7 +138,9 @@ void CellularAutomatonModel::showExitStatistics() const {
 	for (size_t i = 0; i < mFloorField.mExits.size(); i++) {
 		printf("Exit %2d:\n", i);
 		printf(" Number of passed agents     : %d\n", mFloorField.mExits[i].mNumPassedAgents);
-		printf(" Average evacuation timesteps: %f\n", (mFloorField.mExits[i].mNumPassedAgents > 0 ? (float)mFloorField.mExits[i].mAccumulatedTimesteps / mFloorField.mExits[i].mNumPassedAgents : 0.f));
+		printf(" Average evacuation timesteps: %f\n", (mFloorField.mExits[i].mNumPassedAgents > 0
+			? (float)mFloorField.mExits[i].mAccumulatedTimesteps / mFloorField.mExits[i].mNumPassedAgents
+			: 0.f));
 	}
 	printf("---------------------------------------------\n");
 }
@@ -152,7 +156,7 @@ void CellularAutomatonModel::editExit(const array2f &worldCoord) {
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])
 		return;
 	// only cells which are not occupied by agents or obstacles can be edited
-	else if (mCellStates[index] != TYPE_AGENT && mCellStates[index] != TYPE_MOVABLE_OBSTACLE && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE) {
+	if (mCellStates[index] != TYPE_AGENT && mCellStates[index] != TYPE_MOVABLE_OBSTACLE && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE) {
 		mFloorField.editExit(coord);
 		mFlgUpdateStatic = true;
 		setCellStates();
@@ -166,7 +170,7 @@ void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool isMova
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])
 		return;
 	// only cells which are not occupied by agents or exits can be edited
-	else if (mCellStates[index] != TYPE_AGENT && !mFloorField.isExisting_exit(coord)) {
+	if (mCellStates[index] != TYPE_AGENT && !mFloorField.isExisting_exit(coord)) {
 		if (isMovable && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE)
 			mFloorField.editObstacle(coord, true);
 		else if (!isMovable && mCellStates[index] != TYPE_MOVABLE_OBSTACLE)
@@ -183,7 +187,7 @@ void CellularAutomatonModel::editAgent(const array2f &worldCoord) {
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])
 		return;
 	// only cells which are not occupied by exits or obstacles can be edited
-	else if (!mFloorField.isExisting_exit(coord) && mCellStates[index] != TYPE_MOVABLE_OBSTACLE && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE) {
+	if (!mFloorField.isExisting_exit(coord) && mCellStates[index] != TYPE_MOVABLE_OBSTACLE && mCellStates[index] != TYPE_IMMOVABLE_OBSTACLE) {
 		mAgentManager.edit(coord);
 		mFlgAgentEdited = true;
 		setCellStates();
@@ -214,72 +218,23 @@ void CellularAutomatonModel::setCellStates() {
 
 int CellularAutomatonModel::getFreeCell(const arrayNf &cells, const array2i &pos, float vmax, float vmin) {
 	int curIndex = convertTo1D(pos), adjIndex;
-
-	/*
-	 * Find available cells. (Moore neighborhood)
-	 */
 	std::vector<std::pair<int, float>> possibleCoords;
 	possibleCoords.reserve(8);
 
-	// right cell
-	adjIndex = curIndex + 1;
-	if (pos[0] + 1 < mFloorField.mDim[0] && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+	for (int y = -1; y < 2; y++) {
+		for (int x = -1; x < 2; x++) {
+			if (y == 0 && x == 0)
+				continue;
+
+			adjIndex = curIndex + y * mFloorField.mDim[0] + x;
+			if (pos[0] + x >= 0 && pos[0] + x < mFloorField.mDim[0] &&
+				pos[1] + y >= 0 && pos[1] + y < mFloorField.mDim[1] &&
+				mCellStates[adjIndex] == TYPE_EMPTY &&
+				vmax > cells[adjIndex] && cells[adjIndex] > vmin)
+				possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
+		}
 	}
 
-	// left cell
-	adjIndex = curIndex - 1;
-	if (pos[0] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// up cell
-	adjIndex = curIndex + mFloorField.mDim[0];
-	if (pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// down cell
-	adjIndex = curIndex - mFloorField.mDim[0];
-	if (pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// upper right cell
-	adjIndex = curIndex + mFloorField.mDim[0] + 1;
-	if (pos[0] + 1 < mFloorField.mDim[0] && pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// lower left cell
-	adjIndex = curIndex - mFloorField.mDim[0] - 1;
-	if (pos[0] - 1 >= 0 && pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// lower right cell
-	adjIndex = curIndex - mFloorField.mDim[0] + 1;
-	if (pos[0] + 1 < mFloorField.mDim[0] && pos[1] - 1 >= 0 && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	// upper left cell
-	adjIndex = curIndex + mFloorField.mDim[0] - 1;
-	if (pos[0] - 1 >= 0 && pos[1] + 1 < mFloorField.mDim[1] && mCellStates[adjIndex] == TYPE_EMPTY) {
-		if (vmax > cells[adjIndex] && cells[adjIndex] > vmin)
-			possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
-	}
-
-	/*
-	 * Decide the cell.
-	 */
 	return getMinRandomly(possibleCoords);
 }
 

@@ -4,15 +4,11 @@ void OpenGLApp::createGUI() {
 	GLUI *glui = GLUI_Master.create_glui("Crowd Evacuation Setting");
 	glui->add_statictext("Crowd Evacuation Setting");
 	glui->add_separator();
+
 	glui->add_checkbox("Enable Colormap", &mOpenGLApp->mFlgEnableColormap, 1, gluiCallback);
 	glui->add_checkbox("Show Grid", &mOpenGLApp->mFlgShowGrid, 2, gluiCallback);
 	GLUI_Spinner *spinner = glui->add_spinner("Simulation Speed", GLUI_SPINNER_FLOAT, &mOpenGLApp->mExecutionSpeed, 3, gluiCallback);
 	spinner->set_float_limits(0.f, 1.f, GLUI_LIMIT_CLAMP);
-	glui->add_separator();
-
-	GLUI_Panel *panel = glui->add_panel("Ideal Distance Range", GLUI_PANEL_EMBOSSED);
-	glui->add_edittext_to_panel(panel, "Min", GLUI_EDITTEXT_FLOAT, &mOpenGLApp->mModel.mIdealDistRange[0], 3, gluiCallback);
-	glui->add_edittext_to_panel(panel, "Max", GLUI_EDITTEXT_FLOAT, &mOpenGLApp->mModel.mIdealDistRange[1], 3, gluiCallback);
 	glui->add_separator();
 
 	glui->add_button("Edit Agents", 4, gluiCallback);

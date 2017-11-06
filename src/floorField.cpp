@@ -159,9 +159,9 @@ void FloorField::print() const {
 	}
 }
 
-void FloorField::evaluateCells(const array2i &root, arrayNf &floorField) const {
+void FloorField::evaluateCells(int root, arrayNf &floorField) const {
 	std::queue<int> toDoList;
-	toDoList.push(convertTo1D(root));
+	toDoList.push(root);
 
 	while (!toDoList.empty()) {
 		int curIndex = toDoList.front(), adjIndex;
@@ -635,7 +635,7 @@ void FloorField::updateCellsStatic() {
 
 		// compute the static weight
 		for (const auto &e : mExits[i].mPos)
-			evaluateCells(e, mCellsForExitsStatic[i]);
+			evaluateCells(convertTo1D(e), mCellsForExitsStatic[i]);
 	}
 }
 

@@ -16,7 +16,7 @@ public:
 
 class Obstacle {
 public:
-	Obstacle() : mPos({ 0, 0 }), mIsMovable(false), mIsActive(false), mIsAssigned(false) {}
+	Obstacle() : mPos{ 0, 0 }, mIsMovable(false), mIsActive(false), mIsAssigned(false) {}
 
 	array2i mPos;
 	bool mIsMovable;
@@ -25,26 +25,33 @@ public:
 	bool mIsAssigned; // true if some agent ever moves it, false otherwise
 	float mPriority;
 
-	array2i mTmpPos;  // cell the movable obstacle will be moved to at the next timestep
+	array2i mTmpPos;  // cell the movable obstacle will be moved into at the next timestep
 };
 
 class Agent {
 public:
-	Agent() : mPos({ 0, 0 }), mFacingDir({ 0.f, 0.f }), mIsActive(false), mInChargeOf(STATE_NULL), mStrategy({ false, false }) {}
+	Agent() : mPos{ 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL),
+		mBlacklist(false), mStrategy{ false, false }, mPayoff{ 0.f, 0.f, 0.f, 0.f }, mNumGames{ 0, 0 } {}
 
 	array2i mPos;
 	array2f mFacingDir;
 	bool mIsActive;
 	///
 	int mInChargeOf;  // store relation with the movable obstacle
-	int mStrength;    // timesteps needed to move an obstacle to another cell
-	int mCurStrength; // record the current strength when moving an obstacle to another cell
-	array2i mDest;
+	int mStrength;    // timesteps needed to move an obstacle into another cell
+	int mCurStrength; // record the current strength when moving an obstacle into another cell
+	int mDest;        // used by volunteers
+	int mBlacklist;   // used by evacuees
 	arrayNf mCells;
 
-	array2i mTmpPos;  // cell the agent will move to at the next timestep
+	array2i mTmpPos;    // cell the agent will move into at the next timestep
 	array2i mPosForGT;
-	array2b mStrategy;
+	int mInChargeOfForGT;
+	array2b mStrategy;  // [0]: yielding, [1]: volunteering
+	                    // true: YIELD/REMOVE, false: NOT_YIELD/NOT_REMOVE
+	array2f mPayoff[2]; // [0]: yielding, [1]: volunteering
+	                    // [0][0]: NOT_YIELD, [0][1]: YIELD, [1][0]: NOT_REMOVE, [1][1]: REMOVE
+	array2i mNumGames;  // [0]: yielding, [1]: volunteering
 };
 
 #endif

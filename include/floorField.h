@@ -40,7 +40,7 @@ public:
 	void update( const std::vector<Agent> &pool, const arrayNi &agents, bool toUpdateStatic );
 	///
 	void print() const;
-	void evaluateCells( const array2i &root, arrayNf &floorField ) const;
+	void evaluateCells( int root, arrayNf &floorField ) const;
 
 	/*
 	 * Editing.
