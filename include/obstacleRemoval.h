@@ -10,13 +10,14 @@
 class ObstacleRemovalModel : public CellularAutomatonModel {
 public:
 	std::string mPathsToTexture[2];
-	array2f mIdealDistRange;      // [0]: min, [1]: max
+	array2f mIdealRange;          // [0]: min, [1]: max
 	float mAlpha;
-	array2f mInitStrategyDensity; // [0]: yielding, [1]: volunteering (the initial density of YIELD/REMOVE)
+	int mMaxStrength;
+	array3f mInitStrategyDensity; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	float mRationality;
 	float mHerdingCoefficient;
-	array2f mCost;                // [0]: evacuee, [1]: volunteer
-	float mReward;
+	float mMu, mOc, mCc;
+	float mBenefit;
 	///
 	int mFlgStrategyVisualization;
 
@@ -42,17 +43,20 @@ private:
 	void selectCellToPutObstacle( Agent &agent );
 	void moveVolunteer( Agent &agent );
 	void moveEvacuee( Agent &agent );
-	void maintainFloorFieldRelated( Agent &agent );
+	void maintainDataAboutSceneChanges();
 	void customizeFloorField( Agent &agent ) const;
 	void calcPriority();
 	void setMovableObstacleMap();
-	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2, bool (*cond)( const array2i &, const array2i & ), float vmax, float vmin = -1.f );
+	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2,
+		bool (*cond)( const array2i &, const array2i &, const array2i & ), float vmax, float vmin = -1.f );
 
 	/*
 	 * The definitions are in obstacleRemoval_GT.cpp.
 	 */
-	int solveGameDynamics_yielding( arrayNi &agentsInConflict );
-	int solveGameDynamics_volunteering( arrayNi &agentsInConflict );
+	int solveConflict_yielding_heterogeneous( arrayNi &agentsInConflict );
+	int solveConflict_yielding_homogeneous( arrayNi &agentsInConflict );
+	int solveConflict_volunteering( arrayNi &agentsInConflict );
+	void adjustAgentStates( const arrayNi &agentsInConflict, const arrayNf &curRealPayoff, const arrayNf &curVirtualPayoff, int type );
 	///
 	inline float calcTransProb( float u1, float u2 ) const { return 1.f / (1.f + exp(mRationality * (u2 - u1))); }
 };

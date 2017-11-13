@@ -132,7 +132,7 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 		mOpenGLApp->mModel.update();
 		break;
 	case 'v': // show strategies in different modes
-		mOpenGLApp->mModel.mFlgStrategyVisualization = ++mOpenGLApp->mModel.mFlgStrategyVisualization % 3;
+		mOpenGLApp->mModel.mFlgStrategyVisualization = ++mOpenGLApp->mModel.mFlgStrategyVisualization % 4;
 		cout << "mFlgStrategyVisualization is switched to " << mOpenGLApp->mModel.mFlgStrategyVisualization << endl;
 		break;
 	case 'r': // take a screenshot

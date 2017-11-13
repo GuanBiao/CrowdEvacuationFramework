@@ -47,11 +47,12 @@ public:
 	array2i mTmpPos;    // cell the agent will move into at the next timestep
 	array2i mPosForGT;
 	int mInChargeOfForGT;
-	array2b mStrategy;  // [0]: yielding, [1]: volunteering
+	array3b mStrategy;  // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	                    // true: YIELD/REMOVE, false: NOT_YIELD/NOT_REMOVE
-	array2f mPayoff[2]; // [0]: yielding, [1]: volunteering
-	                    // [0][0]: NOT_YIELD, [0][1]: YIELD, [1][0]: NOT_REMOVE, [1][1]: REMOVE
-	array2i mNumGames;  // [0]: yielding, [1]: volunteering
+	array2f mPayoff[3]; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
+	                    // [0][0]/[1][0]: NOT_YIELD, [0][1]/[1][1]: YIELD
+						// [2][0]: NOT_REMOVE, [2][1]: REMOVE
+	array3i mNumGames;  // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 };
 
 #endif

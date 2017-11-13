@@ -1,8 +1,8 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	//mRNG.seed(std::random_device{}());
-	mRNG.seed(0);
+	mRNG.seed(std::random_device{}());
+	//mRNG.seed(0);
 	mDistribution = std::uniform_real_distribution<float>(0.f, 1.f);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field

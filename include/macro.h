@@ -31,4 +31,11 @@
 #define STATE_IDLE              -2
 #define STATE_DONE              -3
 
+/*
+ * Define game types.
+ */
+#define GAME_YIELDING_HETERO    0
+#define GAME_YIELDING_HOMO      1
+#define GAME_VOLUNTEERING       2
+
 #endif
