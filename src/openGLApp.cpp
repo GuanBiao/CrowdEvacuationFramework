@@ -5,6 +5,7 @@ OpenGLApp *OpenGLApp::mOpenGLApp = 0;
 OpenGLApp::OpenGLApp() {
 	mFlgEnableColormap = false;
 	mFlgShowGrid = false;
+	mFlgShowInteractionArea = false;
 	mExecutionSpeed = 1.f;
 
 	mOpenGLApp = this;

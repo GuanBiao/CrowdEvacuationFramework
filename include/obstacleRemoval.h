@@ -13,6 +13,7 @@ public:
 	array2f mIdealRange;          // [0]: min, [1]: max
 	float mAlpha;
 	int mMaxStrength;
+	float mInteractionRadius;
 	array3f mInitStrategyDensity; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	float mRationality;
 	float mHerdingCoefficient;
@@ -20,6 +21,7 @@ public:
 	float mBenefit;
 	///
 	int mFlgStrategyVisualization;
+	int mFlgShowInteractionArea;
 
 	ObstacleRemovalModel();
 	void read( const char *fileName );
@@ -27,7 +29,7 @@ public:
 	void update();
 	///
 	void print() const;
-	void print( arrayNf &cells ) const;
+	void print( const arrayNf &cells ) const;
 
 	/*
 	 * Drawing.
@@ -38,6 +40,7 @@ public:
 private:
 	GLuint mTextures[2];
 	arrayNi mMovableObstacleMap;
+	arrayNf mAFF;
 
 	void selectMovableObstacle( Agent &agent );
 	void selectCellToPutObstacle( Agent &agent );
@@ -45,8 +48,10 @@ private:
 	void moveEvacuee( Agent &agent );
 	void maintainDataAboutSceneChanges();
 	void customizeFloorField( Agent &agent ) const;
+	void addAFFTo( arrayNf &cells ) const;
 	void calcPriority();
 	void setMovableObstacleMap();
+	void setAFF();
 	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2,
 		bool (*cond)( const array2i &, const array2i &, const array2i & ), float vmax, float vmin = -1.f );
 

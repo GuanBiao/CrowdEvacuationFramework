@@ -20,7 +20,11 @@ ObstacleRemovalModel::ObstacleRemovalModel() {
 	mMovableObstacleMap.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	setMovableObstacleMap();
 
+	mAFF.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
+	setAFF();
+
 	mFlgStrategyVisualization = 1;
+	mFlgShowInteractionArea = false;
 }
 
 void ObstacleRemovalModel::read(const char *fileName) {
@@ -37,6 +41,8 @@ void ObstacleRemovalModel::read(const char *fileName) {
 			ifs >> mAlpha;
 		else if (key.compare("MAX_STRENGTH") == 0)
 			ifs >> mMaxStrength;
+		else if (key.compare("INTERACTION_RADIUS") == 0)
+			ifs >> mInteractionRadius;
 		else if (key.compare("INIT_STRATEGY_DENSITY") == 0)
 			ifs >> mInitStrategyDensity[0] >> mInitStrategyDensity[1] >> mInitStrategyDensity[2];
 		else if (key.compare("RATIONALITY") == 0)
@@ -69,6 +75,7 @@ void ObstacleRemovalModel::save() const {
 	ofs << "IDEAL_RANGE           " << mIdealRange[0] << " " << mIdealRange[1] << endl;
 	ofs << "ALPHA                 " << mAlpha << endl;
 	ofs << "MAX_STRENGTH          " << mMaxStrength << endl;
+	ofs << "INTERACTION_RADIUS    " << mInteractionRadius << endl;
 	ofs << "INIT_STRATEGY_DENSITY " << mInitStrategyDensity[0] << " " << mInitStrategyDensity[1] << " " << mInitStrategyDensity[2] << endl;
 	ofs << "RATIONALITY           " << mRationality << endl;
 	ofs << "HERDING_COEFFICIENT   " << mHerdingCoefficient << endl;
@@ -112,26 +119,22 @@ void ObstacleRemovalModel::update() {
 	 * Update the floor field.
 	 */
 	if (mFlgUpdateStatic) {
-		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, true);
-
-		// update data related to the floor field since the scene is changed
 		for (const auto &i : mAgentManager.mActiveAgents) {
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 				if (!mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mIsActive ||
 					mMovableObstacleMap[convertTo1D(mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mPos)] != i)
 					// a volunteer is resposible for an obstacle that is changed (deleted, or deleted and added again)
 					mAgentManager.mPool[i].mInChargeOf = STATE_NULL;
-				else
-					customizeFloorField(mAgentManager.mPool[i]);
 			}
 		}
-		calcPriority();
+		maintainDataAboutSceneChanges();
 		setMovableObstacleMap();
 
 		mFlgUpdateStatic = false;
 	}
 	else
 		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, false);
+	addAFFTo(mFloorField.mCells);
 
 	/*
 	 * Check whether the agent arrives at any exit.
@@ -212,8 +215,10 @@ void ObstacleRemovalModel::update() {
 		}
 	}
 
-	if (sceneChanged)
+	if (sceneChanged) {
 		maintainDataAboutSceneChanges();
+		addAFFTo(mFloorField.mCells);
+	}
 	std::for_each(mAgentManager.mActiveAgents.begin(), mAgentManager.mActiveAgents.end(),
 		[&](int i) { if (mAgentManager.mPool[i].mBlacklist != STATE_NULL) customizeFloorField(mAgentManager.mPool[i]); });
 
@@ -333,7 +338,6 @@ void ObstacleRemovalModel::update() {
 					obstacle.mPos = obstacle.mTmpPos;
 				}
 				winner.mCurStrength = winner.mStrength; // since the volunteer can move the obstacle successfully, reset its strength
-				sceneChanged = true;
 
 				// check if the task is done
 				if (winner.mCells[convertTo1D(obstacle.mPos)] == EXIT_WEIGHT) {
@@ -341,7 +345,8 @@ void ObstacleRemovalModel::update() {
 					winner.mInChargeOf = STATE_NULL;
 				}
 
-			label2:;
+			label2:
+				sceneChanged = true;
 			}
 			else {
 				mCellStates[convertTo1D(winner.mPos)] = TYPE_EMPTY;
@@ -352,8 +357,10 @@ void ObstacleRemovalModel::update() {
 		}
 	}
 
-	if (sceneChanged)
+	if (sceneChanged) {
 		maintainDataAboutSceneChanges();
+		addAFFTo(mFloorField.mCells);
+	}
 
 	std::chrono::duration<double> time = std::chrono::system_clock::now() - start; // stop the timer
 	mElapsedTime += time.count();
@@ -369,14 +376,29 @@ void ObstacleRemovalModel::update() {
 }
 
 void ObstacleRemovalModel::print() const {
-	//CellularAutomatonModel::print();
+	CellularAutomatonModel::print();
 
-	//cout << "Movable Obstacle Map:" << endl;
-	//for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
-	//	for (int x = 0; x < mFloorField.mDim[0]; x++)
-	//		printf("%2d ", mMovableObstacleMap[convertTo1D(x, y)]);
-	//	printf("\n");
-	//}
+	cout << "Anticipation Floor Field:" << endl;
+	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mFloorField.mDim[0]; x++) {
+			if (mAFF[convertTo1D(x, y)] == 0.f)
+				printf(" --  ");
+			else
+				printf("%4.1f ", mAFF[convertTo1D(x, y)]);
+		}
+		printf("\n");
+	}
+
+	cout << "Movable Obstacle Map:" << endl;
+	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
+		for (int x = 0; x < mFloorField.mDim[0]; x++) {
+			if (mMovableObstacleMap[convertTo1D(x, y)] == STATE_NULL)
+				printf("-- ");
+			else
+				printf("%2d ", mMovableObstacleMap[convertTo1D(x, y)]);
+		}
+		printf("\n");
+	}
 
 	cout << "mActiveAgents:" << endl;
 	printf(" i |  mPos  |mStrategy|                  mPayoff                 |mInChargeOf|mCurStrength|  mDest\n");
@@ -411,7 +433,7 @@ void ObstacleRemovalModel::print() const {
 	cout << "====================================================================================================" << endl;
 }
 
-void ObstacleRemovalModel::print(arrayNf &cells) const {
+void ObstacleRemovalModel::print(const arrayNf &cells) const {
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++) {
 			if (cells[convertTo1D(x, y)] == INIT_WEIGHT)
@@ -426,6 +448,22 @@ void ObstacleRemovalModel::print(arrayNf &cells) const {
 }
 
 void ObstacleRemovalModel::draw() const {
+	/*
+	 * Draw the AFF.
+	 */
+	if (mFlgShowInteractionArea) {
+		for (int y = 0; y < mFloorField.mDim[1]; y++) {
+			for (int x = 0; x < mFloorField.mDim[0]; x++) {
+				if (mAFF[convertTo1D(x, y)] > 0.f) {
+					array3f color = getColorJet(mAFF[convertTo1D(x, y)] * 3.f, EXIT_WEIGHT, mFloorField.mPresumedMax);
+					glColor3fv(color.data());
+
+					drawSquare((float)x, (float)y, mFloorField.mCellSize);
+				}
+			}
+		}
+	}
+
 	/*
 	 * Draw the scene.
 	 */
@@ -447,45 +485,68 @@ void ObstacleRemovalModel::draw() const {
 			else
 				drawFilledCircleWithTexture(x, y, r, 10, mAgentManager.mPool[i].mFacingDir, mTextures[0]);
 			break;
-		case 1: case 2: // show the strategy for giving way
-			glLineWidth(3.f);
+		case 1: // show the strategy for giving way (heterogeneous)
+			glLineWidth(4.f);
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
-				if (mAgentManager.mPool[i].mStrategy[mFlgStrategyVisualization - 1])
-					glColor3f(0.92f, 0.26f, 0.2f);
+				if (mAgentManager.mPool[i].mStrategy[0])
+					glColor3f(0.f, 0.45f, 0.81f);
 				else
-					glColor3f(0.26f, 0.53f, 0.96f);
+					glColor3f(0.84f, 0.03f, 0.23f);
 				drawFilledCircle(x, y, r, 10);
 				glColor3f(1.f, 1.f, 1.f);
 				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 			}
 			else {
-				if (mAgentManager.mPool[i].mStrategy[mFlgStrategyVisualization - 1]) {
-					glColor3f(0.92f, 0.26f, 0.2f);
+				if (mAgentManager.mPool[i].mStrategy[0]) {
+					glColor3f(0.f, 0.45f, 0.81f);
 					drawCircle(x, y, r, 10);
 				}
 				else {
-					glColor3f(0.26f, 0.53f, 0.96f);
+					glColor3f(0.84f, 0.03f, 0.23f);
+					drawCircle(x, y, r, 10);
+				}
+				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
+			}
+			break;
+		case 2: // show the strategy for giving way (homogeneous)
+			glLineWidth(4.f);
+			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
+				if (mAgentManager.mPool[i].mStrategy[1])
+					glColor3f(0.33f, 0.65f, 0.11f);
+				else
+					glColor3f(0.92f, 0.44f, 0.15f);
+				drawFilledCircle(x, y, r, 10);
+				glColor3f(1.f, 1.f, 1.f);
+				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
+			}
+			else {
+				if (mAgentManager.mPool[i].mStrategy[1]) {
+					glColor3f(0.33f, 0.65f, 0.11f);
+					drawCircle(x, y, r, 10);
+				}
+				else {
+					glColor3f(0.92f, 0.44f, 0.15f);
 					drawCircle(x, y, r, 10);
 				}
 				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 			}
 			break;
 		case 3: // show the strategy for being a volunteer
-			glLineWidth(3.f);
+			glLineWidth(4.f);
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 				if (mAgentManager.mPool[i].mStrategy[2])
-					glColor3f(0.2f, 0.66f, 0.33f);
+					glColor3f(0.f, 0.69f, 0.76f);
 				else
-					glColor3f(0.98f, 0.74f, 0.02f);
+					glColor3f(0.56f, 0.17f, 0.74f);
 				drawFilledCircle(x, y, r, 10);
 				glColor3f(1.f, 1.f, 1.f);
 				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 			}
 			else {
 				if (mAgentManager.mPool[i].mStrategy[2])
-					glColor3f(0.2f, 0.66f, 0.33f);
+					glColor3f(0.f, 0.69f, 0.76f);
 				else
-					glColor3f(0.98f, 0.74f, 0.02f);
+					glColor3f(0.56f, 0.17f, 0.74f);
 				drawCircle(x, y, r, 10);
 				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 			}
@@ -553,11 +614,11 @@ void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent) {
 	 *  2. It is [mIdealRange[0], mIdealRange[1]] away from the exit.
 	 *  3. It has at least three obstacles as the neighbor.
 	 */
-	std::vector<std::pair<int, float>> possibleCoords;
+	std::vector<std::pair<int, float>> possibleCoords_f, possibleCoords_b;
 	for (size_t curIndex = 0; curIndex < agent.mCells.size(); curIndex++) {
 		if (!(mCellStates[curIndex] == TYPE_EMPTY || mCellStates[curIndex] == TYPE_AGENT))
 			continue;
-		if (mFloorField.mCells[curIndex] < mIdealRange[0] || mFloorField.mCells[curIndex] > mIdealRange[1])
+		if (mFloorField.mCells[curIndex] - mAFF[curIndex] < mIdealRange[0] || mFloorField.mCells[curIndex] - mAFF[curIndex] > mIdealRange[1])
 			continue;
 		if (curIndex == convertTo1D(agent.mPos))
 			continue;
@@ -578,16 +639,28 @@ void ObstacleRemovalModel::selectCellToPutObstacle(Agent &agent) {
 			}
 		}
 
-		if (numObsNeighbors > 2)
-			possibleCoords.push_back(std::pair<int, float>(curIndex, agent.mCells[curIndex]));
+		if (numObsNeighbors > 2) {
+			array2f dir_ao = norm(agent.mPos, mFloorField.mPool_obstacle[agent.mInChargeOf].mPos);
+			array2f dir_ac = norm(agent.mPos, cell);
+			if (dir_ao[0] * dir_ac[0] + dir_ao[1] * dir_ac[1] < 0.f) // cell is in back of the volunteer
+				possibleCoords_b.push_back(std::pair<int, float>(curIndex, agent.mCells[curIndex]));
+			else
+				possibleCoords_f.push_back(std::pair<int, float>(curIndex, agent.mCells[curIndex]));
+		}
 	}
 
-	assert(possibleCoords.size() > 0 && "The range for the ideal distance is narrow");
+	assert((possibleCoords_f.size() > 0 || possibleCoords_b.size() > 0) && "The range for the ideal distance is narrow");
 
 	/*
 	 * Plan a shortest path to the destination.
 	 */
-	agent.mDest = getMinRandomly(possibleCoords);
+	if (possibleCoords_f.size() > 0 && possibleCoords_b.size() > 0) {
+		int f = getMinRandomly(possibleCoords_f);
+		int b = getMinRandomly(possibleCoords_b);
+		agent.mDest = agent.mCells[f] == agent.mCells[b] ? f : (agent.mCells[f] < agent.mCells[b] ? f : b);
+	}
+	else
+		agent.mDest = possibleCoords_f.size() > 0 ? getMinRandomly(possibleCoords_f) : getMinRandomly(possibleCoords_b);
 	customizeFloorField(agent);
 }
 
@@ -682,6 +755,7 @@ void ObstacleRemovalModel::maintainDataAboutSceneChanges() {
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
 			customizeFloorField(mAgentManager.mPool[i]);
 	}
+	setAFF();
 	calcPriority();
 }
 
@@ -702,6 +776,7 @@ void ObstacleRemovalModel::customizeFloorField(Agent &agent) const {
 				mFloorField.evaluateCells(convertTo1D(e), agent.mCells);
 			}
 		}
+		addAFFTo(agent.mCells);
 	}
 	else if (agent.mDest != STATE_NULL) { // for volunteers
 		agent.mCells[agent.mDest] = EXIT_WEIGHT;
@@ -713,9 +788,12 @@ void ObstacleRemovalModel::customizeFloorField(Agent &agent) const {
 			if (i != agent.mInChargeOf)
 				agent.mCells[convertTo1D(mFloorField.mPool_obstacle[i].mPos)] = OBSTACLE_WEIGHT;
 		}
-
 		mFloorField.evaluateCells(agent.mDest, agent.mCells);
 	}
+}
+
+void ObstacleRemovalModel::addAFFTo(arrayNf &cells) const {
+	std::transform(cells.begin(), cells.end(), mAFF.begin(), cells.begin(), std::plus<float>());
 }
 
 void ObstacleRemovalModel::calcPriority() {
@@ -737,7 +815,7 @@ void ObstacleRemovalModel::calcPriority() {
 				}
 			}
 
-			mFloorField.mPool_obstacle[i].mPriority = numEmptyNeighbors == 0 ? 0.f : mAlpha / mFloorField.mCells[curIndex] + numEmptyNeighbors / 8.f;
+			mFloorField.mPool_obstacle[i].mPriority = numEmptyNeighbors == 0 ? 0.f : mAlpha / mFloorField.mCells[curIndex] + (1.f - mAlpha) * numEmptyNeighbors / 8.f;
 		}
 	}
 }
@@ -756,6 +834,45 @@ void ObstacleRemovalModel::setMovableObstacleMap() {
 	for (const auto &i : mAgentManager.mActiveAgents) {
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL)
 			mMovableObstacleMap[convertTo1D(mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mPos)] = i;
+	}
+}
+
+void ObstacleRemovalModel::setAFF() {
+	int r = (int)ceil(mInteractionRadius);
+
+	std::fill(mAFF.begin(), mAFF.end(), 0.f);
+	for (const auto &i : mAgentManager.mActiveAgents) {
+		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
+			Agent &agent = mAgentManager.mPool[i];
+			array2f dir_ao = norm(agent.mPos, mFloorField.mPool_obstacle[agent.mInChargeOf].mPos), dir_ac;
+			int index;
+
+			for (int y = -r; y <= r; y++) {
+				for (int x = -r; x <= r; x++) {
+					if (y == 0 && x == 0)
+						continue;
+
+					index = convertTo1D(agent.mPos[0] + x, agent.mPos[1] + y);
+					if (agent.mPos[0] + x >= 0 && agent.mPos[0] + x < mFloorField.mDim[0] &&
+						agent.mPos[1] + y >= 0 && agent.mPos[1] + y < mFloorField.mDim[1] &&
+						(mCellStates[index] == TYPE_EMPTY || mCellStates[index] == TYPE_AGENT)) {
+						dir_ac = norm(agent.mPos, array2i{ agent.mPos[0] + x, agent.mPos[1] + y });
+						if (dir_ao[0] * dir_ac[0] + dir_ao[1] * dir_ac[1] < cosd(45.f))
+							continue;
+
+						int diff_x = abs(agent.mPos[0] + x - mFloorField.mPool_obstacle[agent.mInChargeOf].mPos[0]);
+						int diff_y = abs(agent.mPos[1] + y - mFloorField.mPool_obstacle[agent.mInChargeOf].mPos[1]);
+						float dist = std::min(diff_x, diff_y) * mFloorField.mLambda + abs(diff_x - diff_y);
+						if (dist * 3 <= mInteractionRadius)
+							mAFF[index] += 1.5f;
+						else if (dist * 3 <= mInteractionRadius * 2)
+							mAFF[index] += 1.f;
+						else if (dist <= mInteractionRadius)
+							mAFF[index] += 0.5f;
+					}
+				}
+			}
+		}
 	}
 }
 

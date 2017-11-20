@@ -14,6 +14,7 @@ class OpenGLApp {
 public:
 	int mFlgEnableColormap;
 	int mFlgShowGrid;
+	int mFlgShowInteractionArea;
 	float mExecutionSpeed;
 
 	OpenGLApp();

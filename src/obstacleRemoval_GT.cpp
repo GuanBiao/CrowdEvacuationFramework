@@ -124,9 +124,6 @@ int ObstacleRemovalModel::solveConflict_yielding_homogeneous(arrayNi &agentsInCo
 }
 
 int ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) {
-	if (agentsInConflict.size() == 1)
-		return mAgentManager.mPool[agentsInConflict[0]].mStrategy[2] ? agentsInConflict[0] : STATE_NULL;
-
 	int numAgentsRemove;
 	std::sort(agentsInConflict.begin(), agentsInConflict.end(),
 		[&](int i, int j) { return mAgentManager.mPool[i].mStrategy[2] > mAgentManager.mPool[j].mStrategy[2]; });
@@ -141,10 +138,10 @@ int ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) 
 		std::fill(virtualPayoff.begin(), virtualPayoff.end(), 1.f - mBenefit);
 		break;
 	default:
-		std::fill(realPayoff.begin(), realPayoff.begin() + numAgentsRemove, 1.f - mBenefit);
+		std::fill(realPayoff.begin(), realPayoff.begin() + numAgentsRemove, 1.f - mBenefit / numAgentsRemove);
 		std::fill(realPayoff.begin() + numAgentsRemove, realPayoff.end(), mBenefit);
 		std::fill(virtualPayoff.begin(), virtualPayoff.begin() + numAgentsRemove, mBenefit);
-		std::fill(virtualPayoff.begin() + numAgentsRemove, virtualPayoff.end(), 1.f - mBenefit);
+		std::fill(virtualPayoff.begin() + numAgentsRemove, virtualPayoff.end(), 1.f - mBenefit / (numAgentsRemove + 1));
 	}
 
 	adjustAgentStates(agentsInConflict, realPayoff, virtualPayoff, GAME_VOLUNTEERING);
