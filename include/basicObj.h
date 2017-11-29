@@ -38,8 +38,6 @@ public:
 	bool mIsActive;
 	///
 	int mInChargeOf;  // store relation with the movable obstacle
-	int mStrength;    // timesteps needed to move an obstacle into another cell
-	int mCurStrength; // record the current strength when moving an obstacle into another cell
 	int mDest;        // used by volunteers
 	int mBlacklist;   // used by evacuees
 	arrayNf mCells;

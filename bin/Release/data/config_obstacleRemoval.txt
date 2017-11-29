@@ -1,12 +1,11 @@
 TEXTURE               ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
 IDEAL_RANGE           3 7
-ALPHA                 1
-MAX_STRENGTH          3
+ALPHA                 0.5
 INTERACTION_RADIUS    3
-INIT_STRATEGY_DENSITY 0.3 0.3 0.3
+INIT_STRATEGY_DENSITY 0 0 0
 RATIONALITY           1
 HERDING_COEFFICIENT   0.5
 MU                    0
 OC                    0
 CC                    0
-BENEFIT               0
+RC                    0

@@ -12,13 +12,11 @@ public:
 	std::string mPathsToTexture[2];
 	array2f mIdealRange;          // [0]: min, [1]: max
 	float mAlpha;
-	int mMaxStrength;
 	float mInteractionRadius;
 	array3f mInitStrategyDensity; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	float mRationality;
 	float mHerdingCoefficient;
-	float mMu, mOc, mCc;
-	float mBenefit;
+	float mMu, mOc, mCc, mRc;
 	///
 	int mFlgStrategyVisualization;
 	int mFlgShowInteractionArea;

@@ -34,6 +34,8 @@
 
 2017/11/20: Add AFF.
 
+2017/11/27: Modify the games.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

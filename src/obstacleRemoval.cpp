@@ -39,8 +39,6 @@ void ObstacleRemovalModel::read(const char *fileName) {
 			ifs >> mIdealRange[0] >> mIdealRange[1];
 		else if (key.compare("ALPHA") == 0)
 			ifs >> mAlpha;
-		else if (key.compare("MAX_STRENGTH") == 0)
-			ifs >> mMaxStrength;
 		else if (key.compare("INTERACTION_RADIUS") == 0)
 			ifs >> mInteractionRadius;
 		else if (key.compare("INIT_STRATEGY_DENSITY") == 0)
@@ -55,8 +53,8 @@ void ObstacleRemovalModel::read(const char *fileName) {
 			ifs >> mOc;
 		else if (key.compare("CC") == 0)
 			ifs >> mCc;
-		else if (key.compare("BENEFIT") == 0)
-			ifs >> mBenefit;
+		else if (key.compare("RC") == 0)
+			ifs >> mRc;
 	}
 
 	ifs.close();
@@ -74,7 +72,6 @@ void ObstacleRemovalModel::save() const {
 	ofs << "TEXTURE               " << mPathsToTexture[0] << " " << mPathsToTexture[1] << endl;
 	ofs << "IDEAL_RANGE           " << mIdealRange[0] << " " << mIdealRange[1] << endl;
 	ofs << "ALPHA                 " << mAlpha << endl;
-	ofs << "MAX_STRENGTH          " << mMaxStrength << endl;
 	ofs << "INTERACTION_RADIUS    " << mInteractionRadius << endl;
 	ofs << "INIT_STRATEGY_DENSITY " << mInitStrategyDensity[0] << " " << mInitStrategyDensity[1] << " " << mInitStrategyDensity[2] << endl;
 	ofs << "RATIONALITY           " << mRationality << endl;
@@ -82,7 +79,7 @@ void ObstacleRemovalModel::save() const {
 	ofs << "MU                    " << mMu << endl;
 	ofs << "OC                    " << mOc << endl;
 	ofs << "CC                    " << mCc << endl;
-	ofs << "BENEFIT               " << mBenefit << endl;
+	ofs << "RC                    " << mRc << endl;
 	ofs.close();
 
 	cout << "Save successfully: " << "./data/config_obstacleRemoval_saved_" + std::string(buffer) + ".txt" << endl;
@@ -122,7 +119,7 @@ void ObstacleRemovalModel::update() {
 		for (const auto &i : mAgentManager.mActiveAgents) {
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 				if (!mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mIsActive ||
-					mMovableObstacleMap[convertTo1D(mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mPos)] != i)
+					!mFloorField.mPool_obstacle[mAgentManager.mPool[i].mInChargeOf].mIsAssigned)
 					// a volunteer is resposible for an obstacle that is changed (deleted, or deleted and added again)
 					mAgentManager.mPool[i].mInChargeOf = STATE_NULL;
 			}
@@ -160,7 +157,7 @@ void ObstacleRemovalModel::update() {
 	mTimesteps++;
 
 	/*
-	 * Determine the volunteers (game for volunteering).
+	 * Determine the volunteers (volunteering game).
 	 */
 	arrayNb processed(mAgentManager.mActiveAgents.size());
 	for (size_t i = 0; i < mAgentManager.mActiveAgents.size(); i++) {
@@ -201,8 +198,6 @@ void ObstacleRemovalModel::update() {
 			mFloorField.mPool_obstacle[winner.mInChargeOfForGT].mIsAssigned = true;
 			winner.mFacingDir = norm(winner.mPos, mFloorField.mPool_obstacle[winner.mInChargeOfForGT].mPos);
 			winner.mInChargeOf = winner.mInChargeOfForGT;
-			winner.mStrength = (int)(mDistribution(mRNG) * mMaxStrength + 1.f); // shift from [0.f, 1.f) to [1, mMaxStrength]
-			winner.mCurStrength = winner.mStrength;
 
 			selectCellToPutObstacle(winner);
 			sceneChanged = true;
@@ -236,15 +231,10 @@ void ObstacleRemovalModel::update() {
 	for (const auto &i : mAgentManager.mActiveAgents) {
 		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 			// reconsider the destination if an obstacle is put at the original destination
-			if (mMovableObstacleMap[mAgentManager.mPool[i].mDest] == STATE_DONE) {
-				mAgentManager.mPool[i].mCurStrength = mAgentManager.mPool[i].mStrength;
+			if (mMovableObstacleMap[mAgentManager.mPool[i].mDest] == STATE_DONE)
 				selectCellToPutObstacle(mAgentManager.mPool[i]);
-			}
 
-			if (mAgentManager.mPool[i].mCurStrength == 1)
-				moveVolunteer(mAgentManager.mPool[i]);
-			else
-				mAgentManager.mPool[i].mCurStrength--;
+			moveVolunteer(mAgentManager.mPool[i]);
 		}
 		else {
 			if (mDistribution(mRNG) > mAgentManager.mPanicProb)
@@ -256,7 +246,7 @@ void ObstacleRemovalModel::update() {
 	}
 
 	/*
-	 * Handle agent interaction (game for yielding).
+	 * Handle agent interaction (yielding game).
 	 */
 	for (size_t i = 0; i < mAgentManager.mActiveAgents.size(); i++) {
 		Agent &agent = mAgentManager.mPool[mAgentManager.mActiveAgents[i]];
@@ -337,7 +327,6 @@ void ObstacleRemovalModel::update() {
 					winner.mFacingDir = norm(winner.mTmpPos, obstacle.mTmpPos);
 					obstacle.mPos = obstacle.mTmpPos;
 				}
-				winner.mCurStrength = winner.mStrength; // since the volunteer can move the obstacle successfully, reset its strength
 
 				// check if the task is done
 				if (winner.mCells[convertTo1D(obstacle.mPos)] == EXIT_WEIGHT) {
@@ -359,7 +348,7 @@ void ObstacleRemovalModel::update() {
 
 	if (sceneChanged) {
 		maintainDataAboutSceneChanges();
-		addAFFTo(mFloorField.mCells);
+		addAFFTo(mFloorField.mCells); // just for display
 	}
 
 	std::chrono::duration<double> time = std::chrono::system_clock::now() - start; // stop the timer
@@ -401,7 +390,7 @@ void ObstacleRemovalModel::print() const {
 	}
 
 	cout << "mActiveAgents:" << endl;
-	printf(" i |  mPos  |mStrategy|                  mPayoff                 |mInChargeOf|mCurStrength|  mDest\n");
+	printf(" i |  mPos  |mStrategy|                  mPayoff                 |mInChargeOf|  mDest\n");
 	for (const auto &i : mAgentManager.mActiveAgents) {
 		const Agent &agent = mAgentManager.mPool[i];
 		printf("%3d", i);
@@ -410,12 +399,10 @@ void ObstacleRemovalModel::print() const {
 		printf("|(%5.1f, %5.1f)(%5.1f, %5.1f)(%5.1f, %5.1f)",
 			agent.mPayoff[0][0], agent.mPayoff[0][1], agent.mPayoff[1][0], agent.mPayoff[1][1], agent.mPayoff[2][0], agent.mPayoff[2][1]);
 		printf("|    %3d    ", agent.mInChargeOf);
-		if (agent.mInChargeOf != STATE_NULL) {
-			printf("|     %d/%d    ", agent.mCurStrength, agent.mStrength);
+		if (agent.mInChargeOf != STATE_NULL)
 			printf("|(%2d, %2d)\n", agent.mDest % mFloorField.mDim[0], agent.mDest / mFloorField.mDim[0]);
-		}
 		else
-			printf("|            |\n");
+			printf("|\n");
 	}
 
 	cout << "mActiveObstacles:" << endl;
@@ -430,7 +417,7 @@ void ObstacleRemovalModel::print() const {
 		}
 	}
 
-	cout << "====================================================================================================" << endl;
+	cout << "==========================================================================================" << endl;
 }
 
 void ObstacleRemovalModel::print(const arrayNf &cells) const {

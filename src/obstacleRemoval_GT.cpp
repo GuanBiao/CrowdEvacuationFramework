@@ -58,24 +58,12 @@ int ObstacleRemovalModel::solveConflict_yielding_heterogeneous(arrayNi &agentsIn
 	int numVolunteersNotYield = std::count_if(volunteers.begin(), volunteers.end(),
 		[&](int i) { return !mAgentManager.mPool[i].mStrategy[0]; });
 
-	if (numEvacueesNotYield == 0) {
-		switch (numVolunteersNotYield) {
-		case 0:
-			return agentsInConflict[(int)(mDistribution(mRNG) * agentsInConflict.size())];
-		case 1:
-			return volunteers[0];
-		default:
-			return solveConflict_yielding_homogeneous(arrayNi(volunteers.begin(), volunteers.begin() + numVolunteersNotYield));
-		}
-	}
-	if (numVolunteersNotYield == 0) {
-		switch (numEvacueesNotYield) {
-		case 1:
-			return evacuees[0];
-		default:
-			return solveConflict_yielding_homogeneous(arrayNi(evacuees.begin(), evacuees.begin() + numEvacueesNotYield));
-		}
-	}
+	if (numEvacueesNotYield == 0)
+		return numVolunteersNotYield == 0
+			? agentsInConflict[(int)(mDistribution(mRNG) * agentsInConflict.size())]
+			: volunteers[(int)(mDistribution(mRNG) * numVolunteersNotYield)];
+	if (numVolunteersNotYield == 0)
+		return evacuees[(int)(mDistribution(mRNG) * numEvacueesNotYield)];
 	return STATE_NULL;
 }
 
@@ -134,14 +122,19 @@ int ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) 
 	arrayNf virtualPayoff(agentsInConflict.size(), 0.f);
 	switch (numAgentsRemove) {
 	case 0:
-		std::fill(realPayoff.begin(), realPayoff.end(), mBenefit);
-		std::fill(virtualPayoff.begin(), virtualPayoff.end(), 1.f - mBenefit);
+		std::fill(virtualPayoff.begin(), virtualPayoff.end(), 1.f - mRc);
+		break;
+	case 1:
+		realPayoff[0] = 1.f - mRc;
+		virtualPayoff[0] = 0.f;
+		std::fill(realPayoff.begin() + 1, realPayoff.end(), 1.f);
+		std::fill(virtualPayoff.begin() + 1, virtualPayoff.end(), 1.f - mRc / 2);
 		break;
 	default:
-		std::fill(realPayoff.begin(), realPayoff.begin() + numAgentsRemove, 1.f - mBenefit / numAgentsRemove);
-		std::fill(realPayoff.begin() + numAgentsRemove, realPayoff.end(), mBenefit);
-		std::fill(virtualPayoff.begin(), virtualPayoff.begin() + numAgentsRemove, mBenefit);
-		std::fill(virtualPayoff.begin() + numAgentsRemove, virtualPayoff.end(), 1.f - mBenefit / (numAgentsRemove + 1));
+		std::fill(realPayoff.begin(), realPayoff.begin() + numAgentsRemove, 1.f - mRc / numAgentsRemove);
+		std::fill(realPayoff.begin() + numAgentsRemove, realPayoff.end(), 1.f);
+		std::fill(virtualPayoff.begin(), virtualPayoff.begin() + numAgentsRemove, 1.f);
+		std::fill(virtualPayoff.begin() + numAgentsRemove, virtualPayoff.end(), 1.f - mRc / (numAgentsRemove + 1));
 	}
 
 	adjustAgentStates(agentsInConflict, realPayoff, virtualPayoff, GAME_VOLUNTEERING);
