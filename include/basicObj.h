@@ -30,10 +30,10 @@ public:
 
 class Agent {
 public:
-	Agent() : mPos{ 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL),
-		mBlacklist(false), mStrategy{ false, false }, mPayoff{ 0.f, 0.f, 0.f, 0.f }, mNumGames{ 0, 0 } {}
+	Agent() : mLastPos{ 0, 0 }, mPos { 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL), mBlacklist(STATE_NULL),
+		mStrategy{ false, false, false }, mPayoff{ 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }, mNumGames{ 0, 0, 0 } {}
 
-	array2i mPos;
+	array2i mLastPos, mPos;
 	array2f mFacingDir;
 	bool mIsActive;
 	///

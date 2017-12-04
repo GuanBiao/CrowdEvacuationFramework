@@ -50,6 +50,14 @@ void FloorField::read(const char *fileName) {
 			ifs >> mLambda;
 		else if (key.compare("CROWD_AVOIDANCE") == 0)
 			ifs >> mCrowdAvoidance;
+		else if (key.compare("KS") == 0)
+			ifs >> mKS;
+		else if (key.compare("KD") == 0)
+			ifs >> mKD;
+		else if (key.compare("DIFFUSE_PROB") == 0)
+			ifs >> mDiffuseProb;
+		else if (key.compare("DECAY_PROB") == 0)
+			ifs >> mDecayProb;
 		else if (key.compare("PRESUMED_MAX") == 0)
 			ifs >> mPresumedMax;
 	}
@@ -57,6 +65,9 @@ void FloorField::read(const char *fileName) {
 	ifs.close();
 
 	mCells.resize(mDim[0] * mDim[1]);
+
+	mCellsStatic.resize(mDim[0] * mDim[1]);
+	mCellsDynamic.resize(mDim[0] * mDim[1]);
 
 	mCellsForExits.resize(mExits.size());
 	mCellsForExitsStatic.resize(mExits.size());
@@ -87,7 +98,6 @@ void FloorField::save() const {
 	std::ofstream ofs("./data/config_floorField_saved_" + std::string(buffer) + ".txt", std::ios::out);
 
 	ofs << "DIM             " << mDim[0] << " " << mDim[1] << endl;
-
 	ofs << "CELL_SIZE       " << mCellSize[0] << " " << mCellSize[1] << endl;
 
 	ofs << "EXIT            " << mExits.size() << endl;
@@ -110,9 +120,11 @@ void FloorField::save() const {
 	}
 
 	ofs << "LAMBDA          " << mLambda << endl;
-
 	ofs << "CROWD_AVOIDANCE " << mCrowdAvoidance << endl;
-
+	ofs << "KS              " << mKS << endl;
+	ofs << "KD              " << mKD << endl;
+	ofs << "DIFFUSE_PROB    " << mDiffuseProb << endl;
+	ofs << "DECAY_PROB      " << mDecayProb << endl;
 	ofs << "PRESUMED_MAX    " << mPresumedMax << endl;
 
 	ofs.close();
@@ -120,13 +132,13 @@ void FloorField::save() const {
 	cout << "Save successfully: " << "./data/config_floorField_saved_" + std::string(buffer) + ".txt" << endl;
 }
 
-void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, bool toUpdateStatic) {
+void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, int type) {
 	/*
 	 * Compute the static floor field and the dynamic floor field with respect to each exit, if needed.
 	 */
-	if (toUpdateStatic)
+	if (type != UPDATE_DYNAMIC)
 		updateCellsStatic_tbb();
-	if (mCrowdAvoidance > 0.f) // it is meaningless to update the dynamic floor field when mCrowdAvoidance = 0.0
+	if (type != UPDATE_STATIC)
 		updateCellsDynamic_tbb(pool, agents);
 
 	/*
@@ -143,11 +155,31 @@ void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, b
 		std::transform(mCells.begin(), mCells.end(), mCellsForExits[k].begin(), mCells.begin(), [](float i, float j) { return i = i > j ? j : i; });
 }
 
+void FloorField::update_p(int type) {
+	if (type != UPDATE_DYNAMIC)
+		updateCellsStatic_tbb();
+	if (type != UPDATE_STATIC)
+		updateCellsDynamic_p();
+
+	std::copy(mCellsForExitsStatic[0].begin(), mCellsForExitsStatic[0].end(), mCellsStatic.begin());
+	for (size_t k = 1; k < mExits.size(); k++)
+		std::transform(mCellsStatic.begin(), mCellsStatic.end(), mCellsForExitsStatic[k].begin(), mCellsStatic.begin(), [](float i, float j) { return i = i > j ? j : i; });
+
+	std::transform(mCellsStatic.begin(), mCellsStatic.end(), mCellsDynamic.begin(), mCells.begin(),
+		[=](float i, float j) { return (i == INIT_WEIGHT || i == OBSTACLE_WEIGHT) ? i : -mKS * i + mKD * j; });
+}
+
 void FloorField::print() const {
 	cout << "Floor field:" << endl;
 	for (int y = mDim[1] - 1; y >= 0; y--) {
-		for (int x = 0; x < mDim[0]; x++)
-			printf("%4.1f ", mCells[convertTo1D(x, y)]);
+		for (int x = 0; x < mDim[0]; x++) {
+			if (mCells[convertTo1D(x, y)] == INIT_WEIGHT)
+				printf(" ???  ");
+			else if (mCells[convertTo1D(x, y)] == OBSTACLE_WEIGHT)
+				printf(" ---  ");
+			else
+				printf("%5.1f ", mCells[convertTo1D(x, y)]);
+		}
 		printf("\n");
 	}
 
@@ -369,7 +401,7 @@ void FloorField::draw() const {
 				if (mCells[convertTo1D(x, y)] == INIT_WEIGHT)
 					glColor3f(1.f, 1.f, 1.f);
 				else {
-					array3f color = getColorJet(mCells[convertTo1D(x, y)], EXIT_WEIGHT, mPresumedMax); // use a presumed maximum
+					array3f color = getColorJet(abs(mCells[convertTo1D(x, y)]), EXIT_WEIGHT, mPresumedMax);
 					glColor3fv(color.data());
 				}
 
@@ -666,6 +698,35 @@ void FloorField::updateCellsDynamic(const std::vector<Agent> &pool, const arrayN
 			mCellsForExitsDynamic[i][j] = mCrowdAvoidance * (P + 0.5f * E) / mExits[i].mPos.size();
 		}
 	}
+}
+
+void FloorField::updateCellsDynamic_p() {
+	arrayNf tmpCellsDynamic(mDim[0] * mDim[1], 0.f);
+	array2i cell;
+	int adjIndex;
+	for (size_t curIndex = 0; curIndex < mCellsDynamic.size(); curIndex++) {
+		if (mCellStates[curIndex] == TYPE_IMMOVABLE_OBSTACLE)
+			continue;
+		if (mCellStates[curIndex] == TYPE_MOVABLE_OBSTACLE)
+			tmpCellsDynamic[curIndex] = (1.f - mDecayProb) * mCellsDynamic[curIndex];
+		else {
+			cell = { (int)curIndex % mDim[0], (int)curIndex / mDim[0] };
+			for (int y = -1; y < 2; y++) {
+				for (int x = -1; x < 2; x++) {
+					if (y == 0 && x == 0)
+						continue;
+
+					adjIndex = curIndex + y * mDim[0] + x;
+					if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
+						cell[1] + y >= 0 && cell[1] + y < mDim[1])
+						tmpCellsDynamic[curIndex] += mCellsDynamic[adjIndex];
+				}
+			}
+			tmpCellsDynamic[curIndex] = (1.f - mDecayProb) * ((1.f - mDiffuseProb) * mCellsDynamic[curIndex] + mDiffuseProb * tmpCellsDynamic[curIndex] / 8.f);
+		}
+	}
+
+	std::copy(tmpCellsDynamic.begin(), tmpCellsDynamic.end(), mCellsDynamic.begin());
 }
 
 void FloorField::setCellStates() {

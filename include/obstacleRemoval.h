@@ -1,7 +1,6 @@
 #ifndef __OBSTACLEREMOVAL_H__
 #define __OBSTACLEREMOVAL_H__
 
-#include <numeric>
 #include "IL/il.h"
 
 #include "cellularAutomatonModel.h"
@@ -10,10 +9,12 @@
 class ObstacleRemovalModel : public CellularAutomatonModel {
 public:
 	std::string mPathsToTexture[2];
-	array2f mIdealRange;          // [0]: min, [1]: max
+	float mMinDistFromExits;
 	float mAlpha;
 	float mInteractionRadius;
+	float mKA;
 	array3f mInitStrategyDensity; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
+	array3i mFinalStrategyCount;  // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	float mRationality;
 	float mHerdingCoefficient;
 	float mMu, mOc, mCc, mRc;
@@ -38,18 +39,17 @@ public:
 private:
 	GLuint mTextures[2];
 	arrayNi mMovableObstacleMap;
-	arrayNf mAFF;
+	arrayNf mCellsAnticipation;
 
 	void selectMovableObstacle( Agent &agent );
 	void selectCellToPutObstacle( Agent &agent );
 	void moveVolunteer( Agent &agent );
 	void moveEvacuee( Agent &agent );
-	void maintainDataAboutSceneChanges();
+	void maintainDataAboutSceneChanges( int type );
 	void customizeFloorField( Agent &agent ) const;
-	void addAFFTo( arrayNf &cells ) const;
-	void calcPriority();
 	void setMovableObstacleMap();
 	void setAFF();
+	void calcPriority();
 	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2,
 		bool (*cond)( const array2i &, const array2i &, const array2i & ), float vmax, float vmin = -1.f );
 

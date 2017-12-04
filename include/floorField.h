@@ -22,22 +22,26 @@ using std::endl;
 
 class FloorField {
 public:
-	array2i mDim;      // [0]: width, [1]: height
-	array2f mCellSize; // [0]: width, [1]: height
-	arrayNf mCells;    // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
+	array2i mDim;       // [0]: width, [1]: height
+	array2f mCellSize;  // [0]: width, [1]: height
+	arrayNf mCells;     // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
+	arrayNf mCellsStatic, mCellsDynamic;
 	std::vector<Exit> mExits;
 	std::vector<Obstacle> mPool_obstacle;
 	arrayNi mActiveObstacles;
 	float mLambda;
 	float mCrowdAvoidance;
-	float mPresumedMax;
+	float mKS, mKD;
+	float mDiffuseProb, mDecayProb;
+	float mPresumedMax; // used for the colormap
 	///
 	int mFlgEnableColormap;
 	int mFlgShowGrid;
 
 	void read( const char *fileName );
 	void save() const;
-	void update( const std::vector<Agent> &pool, const arrayNi &agents, bool toUpdateStatic );
+	void update( const std::vector<Agent> &pool, const arrayNi &agents, int type );
+	void update_p( int type );
 	///
 	void print() const;
 	void evaluateCells( int root, arrayNf &floorField ) const;
@@ -71,6 +75,7 @@ private:
 	void divideExit( const array2i &coord, int direction );
 	void updateCellsStatic();
 	void updateCellsDynamic( const std::vector<Agent> &pool, const arrayNi &agents );
+	void updateCellsDynamic_p();
 	void setCellStates();
 	///
 	inline int convertTo1D( int x, int y ) const { return y * mDim[0] + x; }

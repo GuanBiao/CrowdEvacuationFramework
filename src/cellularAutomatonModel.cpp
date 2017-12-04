@@ -24,7 +24,7 @@ CellularAutomatonModel::CellularAutomatonModel() {
 		}
 	}
 
-	mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, false); // once the agents are loaded/generated, initialize the dynamic floor field
+	mFloorField.update_p(UPDATE_DYNAMIC); // once the agents are loaded/generated, initialize the floor field
 
 	mCellStates.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	setCellStates();
@@ -46,15 +46,10 @@ void CellularAutomatonModel::update() {
 
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now(); // start the timer
 
-	/*
-	 * Update the floor field.
-	 */
 	if (mFlgUpdateStatic) {
-		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, true);
+		mFloorField.update_p(UPDATE_STATIC);
 		mFlgUpdateStatic = false;
 	}
-	else
-		mFloorField.update(mAgentManager.mPool, mAgentManager.mActiveAgents, false);
 
 	/*
 	 * Check whether the agent arrives at any exit.
@@ -99,6 +94,11 @@ void CellularAutomatonModel::update() {
 		}
 	}
 
+	/*
+	 * Update the floor field.
+	 */
+	mFloorField.update_p(UPDATE_DYNAMIC);
+
 	std::chrono::duration<double> time = std::chrono::system_clock::now() - start; // stop the timer
 	mElapsedTime += time.count();
 
@@ -116,11 +116,11 @@ void CellularAutomatonModel::print() const {
 	for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 		for (int x = 0; x < mFloorField.mDim[0]; x++) {
 			if (mFloorField.mCells[convertTo1D(x, y)] == INIT_WEIGHT)
-				printf(" ??  ");
+				printf(" ???  ");
 			else if (mFloorField.mCells[convertTo1D(x, y)] == OBSTACLE_WEIGHT)
-				printf(" --  ");
+				printf(" ---  ");
 			else
-				printf("%4.1f ", mFloorField.mCells[convertTo1D(x, y)]);
+				printf("%5.1f ", mFloorField.mCells[convertTo1D(x, y)]);
 		}
 		printf("\n");
 	}
@@ -238,11 +238,50 @@ int CellularAutomatonModel::getFreeCell(const arrayNf &cells, const array2i &pos
 	return getMinRandomly(possibleCoords);
 }
 
+int CellularAutomatonModel::getFreeCell_p(const arrayNf &cells, const array2i &lastPos, const array2i &pos) {
+	int curIndex = convertTo1D(pos), adjIndex;
+	std::vector<std::pair<int, double>> possibleCoords;
+	possibleCoords.reserve(8);
+
+	for (int y = -1; y < 2; y++) {
+		for (int x = -1; x < 2; x++) {
+			if (y == 0 && x == 0)
+				continue;
+
+			adjIndex = curIndex + y * mFloorField.mDim[0] + x;
+			if (pos[0] + x >= 0 && pos[0] + x < mFloorField.mDim[0] &&
+				pos[1] + y >= 0 && pos[1] + y < mFloorField.mDim[1] &&
+				mCellStates[adjIndex] == TYPE_EMPTY) {
+				if (adjIndex == convertTo1D(lastPos)) // avoid being attracted by its own virtual trace
+					possibleCoords.push_back(std::pair<int, double>(adjIndex, exp((double)cells[adjIndex] - mFloorField.mKD)));
+				else
+					possibleCoords.push_back(std::pair<int, double>(adjIndex, exp((double)cells[adjIndex])));
+			}
+		}
+	}
+
+	return getOneRandomly(possibleCoords);
+}
+
 int CellularAutomatonModel::getMinRandomly(std::vector<std::pair<int, float>> &vec) {
 	std::sort(vec.begin(), vec.end(), [](const std::pair<int, float> &i, const std::pair<int, float> &j) { return i.second < j.second; });
 	for (int i = vec.size() - 1; i >= 0; i--) {
 		if (vec[i].second == vec[0].second)
 			return vec[(int)(mDistribution(mRNG) * (i + 1))].first;
+	}
+	return STATE_NULL;
+}
+
+int CellularAutomatonModel::getOneRandomly(std::vector<std::pair<int, double>> &vec) {
+	double N = std::accumulate(vec.begin(), vec.end(), 0.0, [](double i, const std::pair<int, double> &j) { return i + j.second; });
+	std::for_each(vec.begin(), vec.end(), [=](std::pair<int, double> &i) { i.second /= N; });
+
+	float p = mDistribution(mRNG);
+	double sum = 0.0;
+	for (const auto &i : vec) {
+		sum += i.second;
+		if (p < sum)
+			return i.first;
 	}
 	return STATE_NULL;
 }

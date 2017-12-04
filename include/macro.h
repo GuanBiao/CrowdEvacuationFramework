@@ -9,6 +9,9 @@
 #define INIT_WEIGHT             5000.f
 #define EXIT_WEIGHT             0.f
 #define OBSTACLE_WEIGHT         FLT_MAX
+#define UPDATE_STATIC           0
+#define UPDATE_DYNAMIC          1
+#define UPDATE_BOTH             2
 
 /*
  * Define cell states.

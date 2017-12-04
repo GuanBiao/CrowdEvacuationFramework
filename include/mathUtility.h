@@ -29,4 +29,16 @@ static array2i rotate(const array2i &pivot, const array2i &p, float theta) {
 	return q;
 }
 
+template<typename T>
+static float mean(const std::vector<T> &vec) {
+	return (float)std::accumulate(vec.begin(), vec.end(), 0.f) / vec.size();
+}
+
+template<typename T>
+static float stddev(const std::vector<T> &vec) {
+	float mu = mean(vec);
+	float diff = std::accumulate(vec.begin(), vec.end(), 0.f, [=](float a, T b) { return a + (b - mu) * (b - mu); });
+	return sqrt(diff / vec.size());
+}
+
 #endif

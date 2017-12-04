@@ -1,0 +1,5 @@
+NUM_EXPERIMENTS 100
+MU_RANGE        1 1 0.1
+OC_RANGE        1 1 0.1
+CC_RANGE        0 2 0.1
+RC_RANGE        1 1 0.1
