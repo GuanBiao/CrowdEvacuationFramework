@@ -24,27 +24,27 @@ public:
 	///
 	bool mIsAssigned; // true if some agent ever moves it, false otherwise
 	float mPriority;
+	arrayNi mInRange; // store evacuees that are within its interaction area
 
 	array2i mTmpPos;  // cell the movable obstacle will be moved into at the next timestep
 };
 
 class Agent {
 public:
-	Agent() : mLastPos{ 0, 0 }, mPos { 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL), mBlacklist(STATE_NULL),
+	Agent() : mLastPos{ 0, 0 }, mPos { 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL),
 		mStrategy{ false, false, false }, mPayoff{ 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }, mNumGames{ 0, 0, 0 } {}
 
 	array2i mLastPos, mPos;
 	array2f mFacingDir;
 	bool mIsActive;
 	///
-	int mInChargeOf;  // store relation with the movable obstacle
-	int mDest;        // used by volunteers
-	int mBlacklist;   // used by evacuees
+	int mInChargeOf;                // store relation with the movable obstacle
+	int mDest;                      // used by volunteers
+	arrayNi mWhitelist, mBlacklist; // used by evacuees
 	arrayNf mCells;
 
 	array2i mTmpPos;    // cell the agent will move into at the next timestep
 	array2i mPosForGT;
-	int mInChargeOfForGT;
 	array3b mStrategy;  // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	                    // true: YIELD/REMOVE, false: NOT_YIELD/NOT_REMOVE
 	array2f mPayoff[3]; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering

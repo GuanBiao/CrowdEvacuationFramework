@@ -51,7 +51,7 @@ void TestApp::runTest() {
 						mModel.mCc = cc;
 						mModel.mRc = rc;
 
-						while (mModel.mAgentManager.mActiveAgents.size() > 0)
+						while (!mModel.mAgentManager.mActiveAgents.empty())
 							mModel.update();
 						strategyDensity[0][i] = (float)mModel.mFinalStrategyCount[0] / numAgents;
 						strategyDensity[1][i] = (float)mModel.mFinalStrategyCount[1] / numAgents;

@@ -31,8 +31,6 @@ bool AgentManager::read(const char *fileName) {
 
 	ifs.close();
 
-	mFlgEnableColormap = false;
-
 	return isAgentProvided;
 }
 
@@ -90,7 +88,8 @@ int AgentManager::addAgent(const array2i &coord) {
 	mPool[i].mFacingDir = { 0.f, 0.f };
 	mPool[i].mIsActive = true;
 	mPool[i].mInChargeOf = STATE_NULL;
-	mPool[i].mBlacklist = STATE_NULL;
+	mPool[i].mWhitelist.clear();
+	mPool[i].mBlacklist.clear();
 	mPool[i].mStrategy = { false, false, false };
 	mPool[i].mPayoff[0] = mPool[i].mPayoff[1] = mPool[i].mPayoff[2] = { 0.f, 0.f };
 	mPool[i].mNumGames = { 0, 0, 0 };

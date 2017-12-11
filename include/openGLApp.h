@@ -12,9 +12,9 @@
 
 class OpenGLApp {
 public:
-	int mFlgEnableColormap;
 	int mFlgShowGrid;
-	int mFlgShowInteractionArea;
+	int mFFDisplayType;
+	int mStrategyVisualizationType;
 	float mExecutionSpeed;
 
 	OpenGLApp();

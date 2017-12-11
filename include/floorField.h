@@ -25,18 +25,18 @@ public:
 	array2i mDim;       // [0]: width, [1]: height
 	array2f mCellSize;  // [0]: width, [1]: height
 	arrayNf mCells;     // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
-	arrayNf mCellsStatic, mCellsDynamic;
+	arrayNf mCellsStatic, mCellsStatic_e, mCellsDynamic;
 	std::vector<Exit> mExits;
-	std::vector<Obstacle> mPool_obstacle;
+	std::vector<Obstacle> mPool_o;
 	arrayNi mActiveObstacles;
 	float mLambda;
 	float mCrowdAvoidance;
-	float mKS, mKD;
+	float mKS, mKD, mKE;
 	float mDiffuseProb, mDecayProb;
-	float mPresumedMax; // used for the colormap
+	float mMaxFF, mMaxSFF; // used for displaying mCells and mCellsStatic
 	///
-	int mFlgEnableColormap;
 	int mFlgShowGrid;
+	int mFFDisplayType;
 
 	void read( const char *fileName );
 	void save() const;
@@ -74,6 +74,7 @@ private:
 	void combineExits( const array2i &coord, int direction );
 	void divideExit( const array2i &coord, int direction );
 	void updateCellsStatic();
+	void updateCellsStatic_p();
 	void updateCellsDynamic( const std::vector<Agent> &pool, const arrayNi &agents );
 	void updateCellsDynamic_p();
 	void setCellStates();

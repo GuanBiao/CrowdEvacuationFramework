@@ -111,11 +111,10 @@ int ObstacleRemovalModel::solveConflict_yielding_homogeneous(arrayNi &agentsInCo
 	}
 }
 
-int ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) {
-	int numAgentsRemove;
+void ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) {
 	std::sort(agentsInConflict.begin(), agentsInConflict.end(),
 		[&](int i, int j) { return mAgentManager.mPool[i].mStrategy[2] > mAgentManager.mPool[j].mStrategy[2]; });
-	numAgentsRemove = std::count_if(agentsInConflict.begin(), agentsInConflict.end(),
+	int numAgentsRemove = std::count_if(agentsInConflict.begin(), agentsInConflict.end(),
 		[&](int i) { return mAgentManager.mPool[i].mStrategy[2]; });
 
 	arrayNf realPayoff(agentsInConflict.size(), 0.f);
@@ -138,18 +137,6 @@ int ObstacleRemovalModel::solveConflict_volunteering(arrayNi &agentsInConflict) 
 	}
 
 	adjustAgentStates(agentsInConflict, realPayoff, virtualPayoff, GAME_VOLUNTEERING);
-
-	std::sort(agentsInConflict.begin(), agentsInConflict.end(),
-		[&](int i, int j) { return mAgentManager.mPool[i].mStrategy[2] > mAgentManager.mPool[j].mStrategy[2]; });
-	numAgentsRemove = std::count_if(agentsInConflict.begin(), agentsInConflict.end(),
-		[&](int i) { return mAgentManager.mPool[i].mStrategy[2]; });
-
-	switch (numAgentsRemove) {
-	case 0:
-		return STATE_NULL;
-	default:
-		return agentsInConflict[(int)(mDistribution(mRNG) * numAgentsRemove)];
-	}
 }
 
 void ObstacleRemovalModel::adjustAgentStates(const arrayNi &agentsInConflict, const arrayNf &curRealPayoff, const arrayNf &curVirtualPayoff, int type) {

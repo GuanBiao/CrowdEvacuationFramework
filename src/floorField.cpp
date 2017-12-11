@@ -4,7 +4,7 @@ void FloorField::read(const char *fileName) {
 	std::ifstream ifs(fileName, std::ios::in);
 	assert(ifs.good());
 
-	mPool_obstacle.resize(1024); // create a pool that holds 1024 obstacles
+	mPool_o.resize(1024); // create a pool that holds 1024 obstacles
 
 	std::string key;
 	while (ifs >> key) {
@@ -54,12 +54,12 @@ void FloorField::read(const char *fileName) {
 			ifs >> mKS;
 		else if (key.compare("KD") == 0)
 			ifs >> mKD;
+		else if (key.compare("KE") == 0)
+			ifs >> mKE;
 		else if (key.compare("DIFFUSE_PROB") == 0)
 			ifs >> mDiffuseProb;
 		else if (key.compare("DECAY_PROB") == 0)
 			ifs >> mDecayProb;
-		else if (key.compare("PRESUMED_MAX") == 0)
-			ifs >> mPresumedMax;
 	}
 
 	ifs.close();
@@ -67,6 +67,7 @@ void FloorField::read(const char *fileName) {
 	mCells.resize(mDim[0] * mDim[1]);
 
 	mCellsStatic.resize(mDim[0] * mDim[1]);
+	mCellsStatic_e.resize(mDim[0] * mDim[1]);
 	mCellsDynamic.resize(mDim[0] * mDim[1]);
 
 	mCellsForExits.resize(mExits.size());
@@ -81,10 +82,13 @@ void FloorField::read(const char *fileName) {
 	mCellStates.resize(mDim[0] * mDim[1]);
 	setCellStates();
 
-	updateCellsStatic_tbb(); // static floor field should only be computed once unless the scene is changed
+	updateCellsStatic_p(); // static floor field should only be computed once unless the scene is changed
+	mMaxSFF = *std::max_element(mCellsStatic.begin(), mCellsStatic.end(),
+		[](float i, float j) { return ((i != INIT_WEIGHT) & (i != OBSTACLE_WEIGHT)) * i < ((j != INIT_WEIGHT) & (j != OBSTACLE_WEIGHT)) * j; });
+	mMaxFF = mKE == 0.f ? -mKS * mMaxSFF : mKE;
 
-	mFlgEnableColormap = false;
 	mFlgShowGrid = false;
+	mFFDisplayType = 0;
 }
 
 void FloorField::save() const {
@@ -107,25 +111,25 @@ void FloorField::save() const {
 			ofs << "                " << e[0] << " " << e[1] << endl;
 	}
 
-	ofs << "MOVABLE         " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && i.mIsMovable; }) << endl;
+	ofs << "MOVABLE         " << std::count_if(mPool_o.begin(), mPool_o.end(), [](const Obstacle &i) { return i.mIsActive && i.mIsMovable; }) << endl;
 	for (const auto &i : mActiveObstacles) {
-		if (mPool_obstacle[i].mIsMovable)
-			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
+		if (mPool_o[i].mIsMovable)
+			ofs << "                " << mPool_o[i].mPos[0] << " " << mPool_o[i].mPos[1] << endl;
 	}
 
-	ofs << "IMMOVABLE       " << std::count_if(mPool_obstacle.begin(), mPool_obstacle.end(), [](const Obstacle &i) { return i.mIsActive && !i.mIsMovable; }) << endl;
+	ofs << "IMMOVABLE       " << std::count_if(mPool_o.begin(), mPool_o.end(), [](const Obstacle &i) { return i.mIsActive && !i.mIsMovable; }) << endl;
 	for (const auto &i : mActiveObstacles) {
-		if (!mPool_obstacle[i].mIsMovable)
-			ofs << "                " << mPool_obstacle[i].mPos[0] << " " << mPool_obstacle[i].mPos[1] << endl;
+		if (!mPool_o[i].mIsMovable)
+			ofs << "                " << mPool_o[i].mPos[0] << " " << mPool_o[i].mPos[1] << endl;
 	}
 
 	ofs << "LAMBDA          " << mLambda << endl;
 	ofs << "CROWD_AVOIDANCE " << mCrowdAvoidance << endl;
 	ofs << "KS              " << mKS << endl;
 	ofs << "KD              " << mKD << endl;
+	ofs << "KE              " << mKE << endl;
 	ofs << "DIFFUSE_PROB    " << mDiffuseProb << endl;
 	ofs << "DECAY_PROB      " << mDecayProb << endl;
-	ofs << "PRESUMED_MAX    " << mPresumedMax << endl;
 
 	ofs.close();
 
@@ -157,16 +161,15 @@ void FloorField::update(const std::vector<Agent> &pool, const arrayNi &agents, i
 
 void FloorField::update_p(int type) {
 	if (type != UPDATE_DYNAMIC)
-		updateCellsStatic_tbb();
+		updateCellsStatic_p();
 	if (type != UPDATE_STATIC)
 		updateCellsDynamic_p();
 
-	std::copy(mCellsForExitsStatic[0].begin(), mCellsForExitsStatic[0].end(), mCellsStatic.begin());
-	for (size_t k = 1; k < mExits.size(); k++)
-		std::transform(mCellsStatic.begin(), mCellsStatic.end(), mCellsForExitsStatic[k].begin(), mCellsStatic.begin(), [](float i, float j) { return i = i > j ? j : i; });
-
-	std::transform(mCellsStatic.begin(), mCellsStatic.end(), mCellsDynamic.begin(), mCells.begin(),
-		[=](float i, float j) { return (i == INIT_WEIGHT || i == OBSTACLE_WEIGHT) ? i : -mKS * i + mKD * j; });
+	for (size_t i = 0; i < mCells.size(); i++) {
+		mCells[i] = (mCellsStatic[i] == INIT_WEIGHT || mCellsStatic[i] == OBSTACLE_WEIGHT)
+			? mCellsStatic[i]
+			: -mKS * mCellsStatic[i] + mKD * mCellsDynamic[i] + mKE * mCellsStatic_e[i];
+	}
 }
 
 void FloorField::print() const {
@@ -285,7 +288,7 @@ boost::optional<array2i> FloorField::isExisting_exit(const array2i &coord) const
 
 boost::optional<int> FloorField::isExisting_obstacle(const array2i &coord, bool isMovable) const {
 	for (size_t i = 0; i < mActiveObstacles.size(); i++) {
-		if (coord == mPool_obstacle[mActiveObstacles[i]].mPos)
+		if (coord == mPool_o[mActiveObstacles[i]].mPos)
 			return i;
 	}
 	return boost::none;
@@ -352,7 +355,7 @@ void FloorField::editExit(const array2i &coord) {
 		}
 	}
 
-	assert(mExits.size() > 0 && "At least one exit must exist");
+	assert(!mExits.empty() && "At least one exit must exist");
 
 	setCellStates();
 }
@@ -372,21 +375,22 @@ void FloorField::editObstacle(const array2i &coord, bool isMovable) {
 
 int FloorField::addObstacle(const array2i &coord, bool isMovable) {
 	size_t i = 0;
-	for (; i < mPool_obstacle.size(); i++) {
-		if (!mPool_obstacle[i].mIsActive)
+	for (; i < mPool_o.size(); i++) {
+		if (!mPool_o[i].mIsActive)
 			break;
 	}
-	assert(i != mPool_obstacle.size() && "The obstacle is not enough");
-	mPool_obstacle[i].mPos = coord;
-	mPool_obstacle[i].mIsMovable = isMovable;
-	mPool_obstacle[i].mIsActive = true;
-	mPool_obstacle[i].mIsAssigned = false;
+	assert(i != mPool_o.size() && "The obstacle is not enough");
+	mPool_o[i].mPos = coord;
+	mPool_o[i].mIsMovable = isMovable;
+	mPool_o[i].mIsActive = true;
+	mPool_o[i].mIsAssigned = false;
+	mPool_o[i].mInRange.clear();
 
 	return i;
 }
 
 void FloorField::deleteObstacle(int i) {
-	mPool_obstacle[mActiveObstacles[i]].mIsActive = false;
+	mPool_o[mActiveObstacles[i]].mIsActive = false;
 	mActiveObstacles[i] = mActiveObstacles.back();
 	mActiveObstacles.pop_back();
 }
@@ -395,13 +399,28 @@ void FloorField::draw() const {
 	/*
 	 * Draw cells.
 	 */
-	if (mFlgEnableColormap) {
+	if (mFFDisplayType > 0 && mFFDisplayType < 5) {
 		for (int y = 0; y < mDim[1]; y++) {
 			for (int x = 0; x < mDim[0]; x++) {
 				if (mCells[convertTo1D(x, y)] == INIT_WEIGHT)
 					glColor3f(1.f, 1.f, 1.f);
 				else {
-					array3f color = getColorJet(abs(mCells[convertTo1D(x, y)]), EXIT_WEIGHT, mPresumedMax);
+					array3f color;
+					switch (mFFDisplayType) {
+					case 1:
+						color = mMaxFF < 0.f
+							? getColorJet(mCells[convertTo1D(x, y)], mMaxFF, EXIT_WEIGHT)
+							: getColorJet(mCells[convertTo1D(x, y)], EXIT_WEIGHT, mMaxFF);
+						break;
+					case 2:
+						color = getColorJet(mCellsStatic[convertTo1D(x, y)], EXIT_WEIGHT, mMaxSFF);
+						break;
+					case 3:
+						color = getColorJet(mCellsStatic_e[convertTo1D(x, y)], 0.f, 1.f);
+						break;
+					case 4:
+						color = getColorJet(mCellsDynamic[convertTo1D(x, y)], 0.f, 1.f);
+					}
 					glColor3fv(color.data());
 				}
 
@@ -414,18 +433,18 @@ void FloorField::draw() const {
 	 * Draw obstacles.
 	 */
 	for (const auto &i : mActiveObstacles) {
-		if (mPool_obstacle[i].mIsMovable)
+		if (mPool_o[i].mIsMovable)
 			glColor3f(0.8f, 0.8f, 0.8f);
 		else
 			glColor3f(0.3f, 0.3f, 0.3f);
 
-		drawSquare((float)mPool_obstacle[i].mPos[0], (float)mPool_obstacle[i].mPos[1], mCellSize);
+		drawSquare((float)mPool_o[i].mPos[0], (float)mPool_o[i].mPos[1], mCellSize);
 	}
 
 	/*
 	 * Draw exits.
 	 */
-	if (!mFlgEnableColormap) {
+	if (mFFDisplayType == 0) {
 		glLineWidth(1.f);
 		glColor3f(0.f, 0.f, 0.f);
 
@@ -660,14 +679,67 @@ void FloorField::updateCellsStatic() {
 			}
 		}
 		for (const auto &j : mActiveObstacles) {
-			if (mPool_obstacle[j].mIsMovable && !mPool_obstacle[j].mIsAssigned)
+			if (mPool_o[j].mIsMovable && !mPool_o[j].mIsAssigned)
 				continue;
-			mCellsForExitsStatic[i][convertTo1D(mPool_obstacle[j].mPos)] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(mPool_o[j].mPos)] = OBSTACLE_WEIGHT;
 		}
 
 		// compute the static weight
 		for (const auto &e : mExits[i].mPos)
 			evaluateCells(convertTo1D(e), mCellsForExitsStatic[i]);
+	}
+}
+
+void FloorField::updateCellsStatic_p() {
+	/*
+	 * Update mCellsStatic.
+	 */
+	updateCellsStatic_tbb();
+	std::copy(mCellsForExitsStatic[0].begin(), mCellsForExitsStatic[0].end(), mCellsStatic.begin());
+	for (size_t k = 1; k < mExits.size(); k++)
+		std::transform(mCellsStatic.begin(), mCellsStatic.end(), mCellsForExitsStatic[k].begin(), mCellsStatic.begin(),
+			[](float i, float j) { return i = i > j ? j : i; });
+
+	/*
+	 * Update mCellsStatic_e.
+	 */
+	std::fill(mCellsStatic_e.begin(), mCellsStatic_e.end(), 0.f);
+	for (const auto &i : mActiveObstacles) {
+		if (mPool_o[i].mIsMovable && !mPool_o[i].mIsAssigned)
+			continue;
+		mCellsStatic_e[convertTo1D(mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
+	}
+	for (const auto &exit : mExits) {
+		for (const auto &e : exit.mPos) {
+			float decline = exp(-1.f * exit.mPos.size());
+			mCellsStatic_e[convertTo1D(e)] = 1.f;
+
+			std::queue<int> toDoList;
+			toDoList.push(convertTo1D(e));
+			while (!toDoList.empty()) {
+				int curIndex = toDoList.front(), adjIndex;
+				float offset;
+				array2i cell = { curIndex % mDim[0], curIndex / mDim[0] };
+				toDoList.pop();
+
+				for (int y = -1; y < 2; y++) {
+					for (int x = -1; x < 2; x++) {
+						if (y == 0 && x == 0)
+							continue;
+
+						adjIndex = curIndex + y * mDim[0] + x;
+						if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
+							cell[1] + y >= 0 && cell[1] + y < mDim[1]) {
+							offset = (x == 0 || y == 0) ? decline : decline * mLambda;
+							if (mCellsStatic_e[adjIndex] < mCellsStatic_e[curIndex] - offset) {
+								mCellsStatic_e[adjIndex] = mCellsStatic_e[curIndex] - offset;
+								toDoList.push(adjIndex);
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -741,9 +813,9 @@ void FloorField::setCellStates() {
 
 	// cell occupied by an obstacle
 	for (const auto &i : mActiveObstacles) {
-		if (mPool_obstacle[i].mIsMovable)
-			mCellStates[convertTo1D(mPool_obstacle[i].mPos)] = TYPE_MOVABLE_OBSTACLE;
+		if (mPool_o[i].mIsMovable)
+			mCellStates[convertTo1D(mPool_o[i].mPos)] = TYPE_MOVABLE_OBSTACLE;
 		else
-			mCellStates[convertTo1D(mPool_obstacle[i].mPos)] = TYPE_IMMOVABLE_OBSTACLE;
+			mCellStates[convertTo1D(mPool_o[i].mPos)] = TYPE_IMMOVABLE_OBSTACLE;
 	}
 }

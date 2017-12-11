@@ -3,9 +3,9 @@
 OpenGLApp *OpenGLApp::mOpenGLApp = 0;
 
 OpenGLApp::OpenGLApp() {
-	mFlgEnableColormap = false;
 	mFlgShowGrid = false;
-	mFlgShowInteractionArea = false;
+	mFFDisplayType = 0;
+	mStrategyVisualizationType = 0;
 	mExecutionSpeed = 1.f;
 
 	mOpenGLApp = this;
@@ -133,8 +133,9 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 		mOpenGLApp->mModel.update();
 		break;
 	case 'v': // show strategies in different modes
-		mOpenGLApp->mModel.mFlgStrategyVisualization = ++mOpenGLApp->mModel.mFlgStrategyVisualization % 4;
-		cout << "mFlgStrategyVisualization is switched to " << mOpenGLApp->mModel.mFlgStrategyVisualization << endl;
+		mOpenGLApp->mStrategyVisualizationType = ++mOpenGLApp->mStrategyVisualizationType % 3;
+		mOpenGLApp->mModel.mStrategyVisualizationType = mOpenGLApp->mStrategyVisualizationType;
+		cout << "mStrategyVisualizationType is switched to " << mOpenGLApp->mStrategyVisualizationType << endl;
 		break;
 	case 'r': // take a screenshot
 		std::string filename = "./screenshot/timestep_" + std::to_string(mOpenGLApp->mModel.mTimesteps) + ".bmp";

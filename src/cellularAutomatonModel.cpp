@@ -41,7 +41,7 @@ void CellularAutomatonModel::save() const {
 }
 
 void CellularAutomatonModel::update() {
-	if (mAgentManager.mActiveAgents.size() == 0)
+	if (mAgentManager.mActiveAgents.empty())
 		return;
 
 	std::chrono::time_point<std::chrono::system_clock> start = std::chrono::system_clock::now(); // start the timer
@@ -83,15 +83,19 @@ void CellularAutomatonModel::update() {
 	std::shuffle(updatingOrder.begin(), updatingOrder.end(), mRNG); // randomly generate the updating order
 
 	for (const auto &i : updatingOrder) {
+		mAgentManager.mPool[i].mTmpPos = mAgentManager.mPool[i].mPos;
 		if (mDistribution(mRNG) > mAgentManager.mPanicProb) {
 			int curIndex = convertTo1D(mAgentManager.mPool[i].mPos);
-			int adjIndex = getFreeCell(mFloorField.mCells, mAgentManager.mPool[i].mPos, mFloorField.mCells[curIndex]); // backstepping is not allowed
+			int adjIndex = getFreeCell_p(mFloorField.mCells, mAgentManager.mPool[i].mLastPos, mAgentManager.mPool[i].mPos);
 			if (adjIndex != STATE_NULL) {
 				mCellStates[curIndex] = TYPE_EMPTY;
 				mCellStates[adjIndex] = TYPE_AGENT;
-				mAgentManager.mPool[i].mPos = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
+				mAgentManager.mPool[i].mTmpPos = { adjIndex % mFloorField.mDim[0], adjIndex / mFloorField.mDim[0] };
 			}
 		}
+
+		mAgentManager.mPool[i].mLastPos = mAgentManager.mPool[i].mPos;
+		mAgentManager.mPool[i].mPos = mAgentManager.mPool[i].mTmpPos;
 	}
 
 	/*
@@ -107,7 +111,7 @@ void CellularAutomatonModel::update() {
 	/*
 	 * All agents have left.
 	 */
-	if (mAgentManager.mActiveAgents.size() == 0)
+	if (mAgentManager.mActiveAgents.empty())
 		showExitStatistics();
 }
 
@@ -205,10 +209,10 @@ void CellularAutomatonModel::setCellStates() {
 
 	// cell occupied by an obstacle
 	for (const auto &i : mFloorField.mActiveObstacles) {
-		if (mFloorField.mPool_obstacle[i].mIsMovable)
-			mCellStates[convertTo1D(mFloorField.mPool_obstacle[i].mPos)] = TYPE_MOVABLE_OBSTACLE;
+		if (mFloorField.mPool_o[i].mIsMovable)
+			mCellStates[convertTo1D(mFloorField.mPool_o[i].mPos)] = TYPE_MOVABLE_OBSTACLE;
 		else
-			mCellStates[convertTo1D(mFloorField.mPool_obstacle[i].mPos)] = TYPE_IMMOVABLE_OBSTACLE;
+			mCellStates[convertTo1D(mFloorField.mPool_o[i].mPos)] = TYPE_IMMOVABLE_OBSTACLE;
 	}
 
 	// cell occupied by an agent
@@ -276,12 +280,11 @@ int CellularAutomatonModel::getOneRandomly(std::vector<std::pair<int, double>> &
 	double N = std::accumulate(vec.begin(), vec.end(), 0.0, [](double i, const std::pair<int, double> &j) { return i + j.second; });
 	std::for_each(vec.begin(), vec.end(), [=](std::pair<int, double> &i) { i.second /= N; });
 
-	float p = mDistribution(mRNG);
-	double sum = 0.0;
+	double p = mDistribution(mRNG);
 	for (const auto &i : vec) {
-		sum += i.second;
-		if (p < sum)
+		if (p < i.second)
 			return i.first;
+		p -= i.second;
 	}
 	return STATE_NULL;
 }

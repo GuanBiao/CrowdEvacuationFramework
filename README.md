@@ -38,6 +38,8 @@
 
 2017/12/04: Modify the CA model and add a test app.
 
+2017/12/11: Redesign the flow of the volunteering game.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)

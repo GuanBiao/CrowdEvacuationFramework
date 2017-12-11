@@ -56,9 +56,9 @@ void FloorField::updateCellsStatic_tbb() {
 			}
 		}
 		for (const auto &j : mActiveObstacles) {
-			if (mPool_obstacle[j].mIsMovable && !mPool_obstacle[j].mIsAssigned)
+			if (mPool_o[j].mIsMovable && !mPool_o[j].mIsAssigned)
 				continue;
-			mCellsForExitsStatic[i][convertTo1D(mPool_obstacle[j].mPos)] = OBSTACLE_WEIGHT;
+			mCellsForExitsStatic[i][convertTo1D(mPool_o[j].mPos)] = OBSTACLE_WEIGHT;
 		}
 
 		// compute the static weight

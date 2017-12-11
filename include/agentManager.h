@@ -22,8 +22,6 @@ public:
 	arrayNi mActiveAgents;
 	float mAgentSize;
 	float mPanicProb;
-	///
-	int mFlgEnableColormap;
 
 	bool read( const char *fileName );
 	void save() const;
