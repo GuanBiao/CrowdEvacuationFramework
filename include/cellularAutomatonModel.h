@@ -39,12 +39,14 @@ public:
 
 protected:
 	arrayNi mCellStates; // use [y-coordinate * mFloorField.mDim[0] + x-coordinate] to access elements
+	unsigned int mRandomSeed;
 	std::mt19937 mRNG;
 	std::uniform_real_distribution<float> mDistribution;
 	///
 	bool mFlgUpdateStatic;
 	bool mFlgAgentEdited;
 
+	void generateAgents();
 	void setCellStates();
 	int getFreeCell( const arrayNf &cells, const array2i &pos, float vmax, float vmin = -1.f );
 	int getFreeCell_p( const arrayNf &cells, const array2i &lastPos, const array2i &pos );

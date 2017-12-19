@@ -102,7 +102,7 @@ void OpenGLApp::gluiCallback(int id) {
 		new (&mOpenGLApp->mModel) ObstacleRemovalModel; // use placement new to run the constructor using already-allocated memory
 		mOpenGLApp->mModel.mFloorField.mFlgShowGrid = mOpenGLApp->mFlgShowGrid;
 		mOpenGLApp->mModel.mFFDisplayType = mOpenGLApp->mModel.mFloorField.mFFDisplayType = mOpenGLApp->mFFDisplayType;
-		mOpenGLApp->mModel.mStrategyVisualizationType = mOpenGLApp->mStrategyVisualizationType;
+		mOpenGLApp->mModel.mAgentVisualizationType = mOpenGLApp->mAgentVisualizationType;
 		mOpenGLApp->mFlgRunApp = false;
 		mOpenGLApp->mFlgEditAgents = false;
 		mOpenGLApp->mFlgEditExits = false;

@@ -60,21 +60,17 @@ int ObstacleRemovalModel::solveConflict_yielding_heterogeneous(arrayNi &agentsIn
 
 	if (numEvacueesNotYield == 0)
 		return numVolunteersNotYield == 0
-			? agentsInConflict[(int)(mDistribution(mRNG) * agentsInConflict.size())]
-			: volunteers[(int)(mDistribution(mRNG) * numVolunteersNotYield)];
+			? agentsInConflict[(int)(mDistribution(mRNG_GT) * agentsInConflict.size())]
+			: volunteers[(int)(mDistribution(mRNG_GT) * numVolunteersNotYield)];
 	if (numVolunteersNotYield == 0)
-		return evacuees[(int)(mDistribution(mRNG) * numEvacueesNotYield)];
+		return evacuees[(int)(mDistribution(mRNG_GT) * numEvacueesNotYield)];
 	return STATE_NULL;
 }
 
 int ObstacleRemovalModel::solveConflict_yielding_homogeneous(arrayNi &agentsInConflict) {
-	if (agentsInConflict.size() == 1)
-		return agentsInConflict[0];
-
-	int numAgentsNotYield;
 	std::sort(agentsInConflict.begin(), agentsInConflict.end(),
 		[&](int i, int j) { return mAgentManager.mPool[i].mStrategy[1] < mAgentManager.mPool[j].mStrategy[1]; });
-	numAgentsNotYield = std::count_if(agentsInConflict.begin(), agentsInConflict.end(),
+	int numAgentsNotYield = std::count_if(agentsInConflict.begin(), agentsInConflict.end(),
 		[&](int i) { return !mAgentManager.mPool[i].mStrategy[1]; });
 
 	arrayNf realPayoff(agentsInConflict.size(), 0.f);
@@ -103,7 +99,7 @@ int ObstacleRemovalModel::solveConflict_yielding_homogeneous(arrayNi &agentsInCo
 
 	switch (numAgentsNotYield) {
 	case 0:
-		return agentsInConflict[(int)(mDistribution(mRNG) * agentsInConflict.size())];
+		return agentsInConflict[(int)(mDistribution(mRNG_GT) * agentsInConflict.size())];
 	case 1:
 		return agentsInConflict[0];
 	default:
@@ -143,34 +139,30 @@ void ObstacleRemovalModel::adjustAgentStates(const arrayNi &agentsInConflict, co
 	arrayNb tmpStrategy(agentsInConflict.size());
 	for (size_t i = 0; i < agentsInConflict.size(); i++) {
 		Agent &agent = mAgentManager.mPool[agentsInConflict[i]];
+		agent.mPayoff[type][agent.mStrategy[type]] += curRealPayoff[i];
+		agent.mPayoff[type][!agent.mStrategy[type]] += curVirtualPayoff[i];
+		agent.mNumGames[type]++;
 		tmpStrategy[i] = agent.mStrategy[type];
 
 		// follow another player's strategy
-		if (mDistribution(mRNG) < mHerdingCoefficient) {
+		if (mDistribution(mRNG_GT) < mHerdingCoefficient) {
 			if (agentsInConflict.size() > 1) {
-				size_t j = (size_t)(mDistribution(mRNG) * (agentsInConflict.size() - 1));
+				size_t j = (size_t)(mDistribution(mRNG_GT) * (agentsInConflict.size() - 1));
 				if (j >= i)
 					j++;
-				if (mDistribution(mRNG) < calcTransProb(curRealPayoff[j], curRealPayoff[i]))
+				if (mDistribution(mRNG_GT) < calcTransProb(curRealPayoff[j], curRealPayoff[i]))
 					tmpStrategy[i] = mAgentManager.mPool[agentsInConflict[j]].mStrategy[type];
 			}
 		}
 		// use self-judgement
 		else {
-			if (agent.mNumGames[type] > 0) {
-				float Ex = agent.mPayoff[type][agent.mStrategy[type]] / agent.mNumGames[type];
-				float Ey = agent.mPayoff[type][!agent.mStrategy[type]] / agent.mNumGames[type];
-				if (mDistribution(mRNG) < calcTransProb(Ey, Ex))
-					tmpStrategy[i] = !agent.mStrategy[type];
-			}
+			float Ex = agent.mPayoff[type][agent.mStrategy[type]] / agent.mNumGames[type];
+			float Ey = agent.mPayoff[type][!agent.mStrategy[type]] / agent.mNumGames[type];
+			if (mDistribution(mRNG_GT) < calcTransProb(Ey, Ex))
+				tmpStrategy[i] = !agent.mStrategy[type];
 		}
 	}
 
-	for (size_t i = 0; i < agentsInConflict.size(); i++) {
-		Agent &agent = mAgentManager.mPool[agentsInConflict[i]];
-		agent.mNumGames[type]++;
-		agent.mPayoff[type][agent.mStrategy[type]] += curRealPayoff[i];
-		agent.mPayoff[type][!agent.mStrategy[type]] += curVirtualPayoff[i];
-		agent.mStrategy[type] = tmpStrategy[i];
-	}
+	for (size_t i = 0; i < agentsInConflict.size(); i++)
+		mAgentManager.mPool[agentsInConflict[i]].mStrategy[type] = tmpStrategy[i];
 }

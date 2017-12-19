@@ -29,16 +29,16 @@ static array2i rotate(const array2i &pivot, const array2i &p, float theta) {
 	return q;
 }
 
-template<typename T>
-static float mean(const std::vector<T> &vec) {
-	return (float)std::accumulate(vec.begin(), vec.end(), 0.f) / vec.size();
+template<class InputIt>
+static float mean(InputIt first, InputIt last) {
+	return (float)std::accumulate(first, last, 0.f) / std::distance(first, last);
 }
 
-template<typename T>
-static float stddev(const std::vector<T> &vec) {
-	float mu = mean(vec);
-	float diff = std::accumulate(vec.begin(), vec.end(), 0.f, [=](float a, T b) { return a + (b - mu) * (b - mu); });
-	return sqrt(diff / vec.size());
+template<class InputIt>
+static float stddev(InputIt first, InputIt last) {
+	float mu = mean(first, last);
+	float diff = std::accumulate(first, last, 0.f, [=](float a, std::iterator_traits<InputIt>::value_type b) { return a + (b - mu) * (b - mu); });
+	return sqrt(diff / std::distance(first, last));
 }
 
 #endif

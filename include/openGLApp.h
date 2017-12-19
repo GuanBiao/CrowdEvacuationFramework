@@ -14,7 +14,7 @@ class OpenGLApp {
 public:
 	int mFlgShowGrid;
 	int mFFDisplayType;
-	int mStrategyVisualizationType;
+	int mAgentVisualizationType;
 	float mExecutionSpeed;
 
 	OpenGLApp();

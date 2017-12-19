@@ -85,7 +85,9 @@ void FloorField::read(const char *fileName) {
 	updateCellsStatic_p(); // static floor field should only be computed once unless the scene is changed
 	mMaxSFF = *std::max_element(mCellsStatic.begin(), mCellsStatic.end(),
 		[](float i, float j) { return ((i != INIT_WEIGHT) & (i != OBSTACLE_WEIGHT)) * i < ((j != INIT_WEIGHT) & (j != OBSTACLE_WEIGHT)) * j; });
-	mMaxFF = mKE == 0.f ? -mKS * mMaxSFF : mKE;
+	mMaxSFF_e = *std::max_element(mCellsStatic_e.begin(), mCellsStatic_e.end(),
+		[](float i, float j) { return ((i != INIT_WEIGHT) & (i != OBSTACLE_WEIGHT)) * i < ((j != INIT_WEIGHT) & (j != OBSTACLE_WEIGHT)) * j; });
+	mMaxFF = mKS * mMaxSFF + mKE * mMaxSFF_e;
 
 	mFlgShowGrid = false;
 	mFFDisplayType = 0;
@@ -168,7 +170,7 @@ void FloorField::update_p(int type) {
 	for (size_t i = 0; i < mCells.size(); i++) {
 		mCells[i] = (mCellsStatic[i] == INIT_WEIGHT || mCellsStatic[i] == OBSTACLE_WEIGHT)
 			? mCellsStatic[i]
-			: -mKS * mCellsStatic[i] + mKD * mCellsDynamic[i] + mKE * mCellsStatic_e[i];
+			: -mKS * mCellsStatic[i] + mKD * mCellsDynamic[i] - mKE * mCellsStatic_e[i];
 	}
 }
 
@@ -200,78 +202,25 @@ void FloorField::evaluateCells(int root, arrayNf &floorField) const {
 
 	while (!toDoList.empty()) {
 		int curIndex = toDoList.front(), adjIndex;
+		float offset;
 		array2i cell = { curIndex % mDim[0], curIndex / mDim[0] };
 		toDoList.pop();
 
-		// right cell
-		adjIndex = curIndex + 1;
-		if (cell[0] + 1 < mDim[0] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
-				floorField[adjIndex] = floorField[curIndex] + 1.f;
-				toDoList.push(adjIndex);
-			}
-		}
+		for (int y = -1; y < 2; y++) {
+			for (int x = -1; x < 2; x++) {
+				if (y == 0 && x == 0)
+					continue;
 
-		// left cell
-		adjIndex = curIndex - 1;
-		if (cell[0] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
-				floorField[adjIndex] = floorField[curIndex] + 1.f;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// up cell
-		adjIndex = curIndex + mDim[0];
-		if (cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
-				floorField[adjIndex] = floorField[curIndex] + 1.f;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// down cell
-		adjIndex = curIndex - mDim[0];
-		if (cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + 1.f) {
-				floorField[adjIndex] = floorField[curIndex] + 1.f;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// upper right cell
-		adjIndex = curIndex + mDim[0] + 1;
-		if (cell[0] + 1 < mDim[0] && cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
-				floorField[adjIndex] = floorField[curIndex] + mLambda;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// lower left cell
-		adjIndex = curIndex - mDim[0] - 1;
-		if (cell[0] - 1 >= 0 && cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
-				floorField[adjIndex] = floorField[curIndex] + mLambda;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// lower right cell
-		adjIndex = curIndex - mDim[0] + 1;
-		if (cell[0] + 1 < mDim[0] && cell[1] - 1 >= 0 && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
-				floorField[adjIndex] = floorField[curIndex] + mLambda;
-				toDoList.push(adjIndex);
-			}
-		}
-
-		// upper left cell
-		adjIndex = curIndex + mDim[0] - 1;
-		if (cell[0] - 1 >= 0 && cell[1] + 1 < mDim[1] && floorField[adjIndex] != OBSTACLE_WEIGHT) {
-			if (floorField[adjIndex] > floorField[curIndex] + mLambda) {
-				floorField[adjIndex] = floorField[curIndex] + mLambda;
-				toDoList.push(adjIndex);
+				adjIndex = curIndex + y * mDim[0] + x;
+				if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
+					cell[1] + y >= 0 && cell[1] + y < mDim[1] &&
+					floorField[adjIndex] != OBSTACLE_WEIGHT) {
+					offset = (x == 0 || y == 0) ? 1.f : mLambda;
+					if (floorField[adjIndex] > floorField[curIndex] + offset) {
+						floorField[adjIndex] = floorField[curIndex] + offset;
+						toDoList.push(adjIndex);
+					}
+				}
 			}
 		}
 	}
@@ -385,6 +334,7 @@ int FloorField::addObstacle(const array2i &coord, bool isMovable) {
 	mPool_o[i].mIsActive = true;
 	mPool_o[i].mIsAssigned = false;
 	mPool_o[i].mInRange.clear();
+	mPool_o[i].mDensities = fixed_queue<float>(10);
 
 	return i;
 }
@@ -408,15 +358,13 @@ void FloorField::draw() const {
 					array3f color;
 					switch (mFFDisplayType) {
 					case 1:
-						color = mMaxFF < 0.f
-							? getColorJet(mCells[convertTo1D(x, y)], mMaxFF, EXIT_WEIGHT)
-							: getColorJet(mCells[convertTo1D(x, y)], EXIT_WEIGHT, mMaxFF);
+						color = getColorJet(abs(mCells[convertTo1D(x, y)]), EXIT_WEIGHT, mMaxFF);
 						break;
 					case 2:
 						color = getColorJet(mCellsStatic[convertTo1D(x, y)], EXIT_WEIGHT, mMaxSFF);
 						break;
 					case 3:
-						color = getColorJet(mCellsStatic_e[convertTo1D(x, y)], 0.f, 1.f);
+						color = getColorJet(mCellsStatic_e[convertTo1D(x, y)], EXIT_WEIGHT, mMaxSFF_e);
 						break;
 					case 4:
 						color = getColorJet(mCellsDynamic[convertTo1D(x, y)], 0.f, 1.f);
@@ -703,16 +651,20 @@ void FloorField::updateCellsStatic_p() {
 	/*
 	 * Update mCellsStatic_e.
 	 */
-	std::fill(mCellsStatic_e.begin(), mCellsStatic_e.end(), 0.f);
+	std::fill(mCellsStatic_e.begin(), mCellsStatic_e.end(), INIT_WEIGHT);
 	for (const auto &i : mActiveObstacles) {
 		if (mPool_o[i].mIsMovable && !mPool_o[i].mIsAssigned)
 			continue;
 		mCellsStatic_e[convertTo1D(mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
 	}
+
+	int totalSize = 0;
+	std::for_each(mExits.begin(), mExits.end(), [&](const Exit &exit) { totalSize += exit.mPos.size(); });
 	for (const auto &exit : mExits) {
 		for (const auto &e : exit.mPos) {
-			float decline = exp(-1.f * exit.mPos.size());
-			mCellsStatic_e[convertTo1D(e)] = 1.f;
+			float offset_hv = exp(-1.f * exit.mPos.size() / totalSize);
+			float offset_d = offset_hv * mLambda;
+			mCellsStatic_e[convertTo1D(e)] = EXIT_WEIGHT;
 
 			std::queue<int> toDoList;
 			toDoList.push(convertTo1D(e));
@@ -729,10 +681,11 @@ void FloorField::updateCellsStatic_p() {
 
 						adjIndex = curIndex + y * mDim[0] + x;
 						if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
-							cell[1] + y >= 0 && cell[1] + y < mDim[1]) {
-							offset = (x == 0 || y == 0) ? decline : decline * mLambda;
-							if (mCellsStatic_e[adjIndex] < mCellsStatic_e[curIndex] - offset) {
-								mCellsStatic_e[adjIndex] = mCellsStatic_e[curIndex] - offset;
+							cell[1] + y >= 0 && cell[1] + y < mDim[1] &&
+							mCellsStatic_e[adjIndex] != OBSTACLE_WEIGHT) {
+							offset = (x == 0 || y == 0) ? offset_hv : offset_d;
+							if (mCellsStatic_e[adjIndex] > mCellsStatic_e[curIndex] + offset) {
+								mCellsStatic_e[adjIndex] = mCellsStatic_e[curIndex] + offset;
 								toDoList.push(adjIndex);
 							}
 						}

@@ -33,7 +33,7 @@ public:
 	float mCrowdAvoidance;
 	float mKS, mKD, mKE;
 	float mDiffuseProb, mDecayProb;
-	float mMaxFF, mMaxSFF; // used for displaying mCells and mCellsStatic
+	float mMaxFF, mMaxSFF, mMaxSFF_e; // used for displaying mCells, mCellsStatic and mCellsStatic_e
 	///
 	int mFlgShowGrid;
 	int mFFDisplayType;

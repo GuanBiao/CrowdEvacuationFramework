@@ -1,28 +1,14 @@
 #include "cellularAutomatonModel.h"
 
 CellularAutomatonModel::CellularAutomatonModel() {
-	mRNG.seed(std::random_device{}());
-	//mRNG.seed(0);
+	mRandomSeed = std::random_device{}();
+	mRNG.seed(mRandomSeed);
 	mDistribution = std::uniform_real_distribution<float>(0.f, 1.f);
 
 	mFloorField.read("./data/config_floorField.txt"); // load the scene, and initialize the static floor field
 
-	bool isAgentProvided = mAgentManager.read("./data/config_agent.txt");
-	if (!isAgentProvided) {
-		std::uniform_int_distribution<> x(0, mFloorField.mDim[0] - 1);
-		std::uniform_int_distribution<> y(0, mFloorField.mDim[1] - 1);
-
-		for (size_t i = 0; i < mAgentManager.mActiveAgents.capacity();) {
-			array2i coord{ x(mRNG), y(mRNG) };
-			// an agent should not initially occupy a cell which has been occupied by an exit, an obstacle or another agent
-			if (!mFloorField.isExisting_exit(coord) &&
-				!mFloorField.isExisting_obstacle(coord, true) && !mFloorField.isExisting_obstacle(coord, false) &&
-				!mAgentManager.isExisting(coord)) {
-				mAgentManager.mActiveAgents.push_back(mAgentManager.addAgent(coord));
-				i++;
-			}
-		}
-	}
+	if (!mAgentManager.read("./data/config_agent.txt"))
+		generateAgents();
 
 	mFloorField.update_p(UPDATE_DYNAMIC); // once the agents are loaded/generated, initialize the floor field
 
@@ -96,6 +82,7 @@ void CellularAutomatonModel::update() {
 
 		mAgentManager.mPool[i].mLastPos = mAgentManager.mPool[i].mPos;
 		mAgentManager.mPool[i].mPos = mAgentManager.mPool[i].mTmpPos;
+		mAgentManager.mPool[i].mTravelTimesteps = mTimesteps;
 	}
 
 	/*
@@ -201,6 +188,22 @@ void CellularAutomatonModel::editAgent(const array2f &worldCoord) {
 void CellularAutomatonModel::draw() const {
 	mFloorField.draw();
 	mAgentManager.draw();
+}
+
+void CellularAutomatonModel::generateAgents() {
+	std::uniform_int_distribution<> x(0, mFloorField.mDim[0] - 1);
+	std::uniform_int_distribution<> y(0, mFloorField.mDim[1] - 1);
+
+	for (size_t i = 0; i < mAgentManager.mActiveAgents.capacity();) {
+		array2i coord{ x(mRNG), y(mRNG) };
+		// an agent should not initially occupy a cell which has been occupied by an exit, an obstacle or another agent
+		if (!mFloorField.isExisting_exit(coord) &&
+			!mFloorField.isExisting_obstacle(coord, true) && !mFloorField.isExisting_obstacle(coord, false) &&
+			!mAgentManager.isExisting(coord)) {
+			mAgentManager.mActiveAgents.push_back(mAgentManager.addAgent(coord));
+			i++;
+		}
+	}
 }
 
 void CellularAutomatonModel::setCellStates() {

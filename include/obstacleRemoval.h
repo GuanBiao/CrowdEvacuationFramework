@@ -9,22 +9,24 @@
 class ObstacleRemovalModel : public CellularAutomatonModel {
 public:
 	std::string mPathsToTexture[2];
+	int mMaxTravelTimesteps;      // used for displaying every agent's mTravelTimesteps
 	float mMinDistFromExits;
 	float mAlpha;
-	float mInteractionRadius;
+	float mInteractionRadius_o, mInteractionRadius_v;
 	float mCriticalDensity;
 	float mKA;
 	array3f mInitStrategyDensity; // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
-	array3i mFinalStrategyCount;  // [0]: yielding_heterogeneous, [1]: yielding_homogeneous, [2]: volunteering
 	float mRationality;
 	float mHerdingCoefficient;
 	float mMu, mOc, mCc, mRc;
 	///
+	std::vector<Agent> mHistory;
+	///
 	int mFFDisplayType;
-	int mStrategyVisualizationType;
+	int mAgentVisualizationType;
 
 	ObstacleRemovalModel();
-	void read( const char *fileName );
+	void read( const char *fileName1, const char *fileName2 );
 	void save() const;
 	void update();
 	///
@@ -38,6 +40,8 @@ public:
 	void setTextures();
 
 private:
+	unsigned int mRandomSeed_GT;
+	std::mt19937 mRNG_GT;
 	GLuint mTextures[2];
 	arrayNi mMovableObstacleMap;
 	arrayNf mCellsAnticipation;
@@ -51,7 +55,7 @@ private:
 	void setMovableObstacleMap();
 	void setAFF();
 	void calcPriority();
-	float calcDensity( const Obstacle &obstacle, int exclusion = STATE_NULL ) const;
+	float calcDensity( const Obstacle &obstacle ) const;
 	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2,
 		bool (*cond)( const array2i &, const array2i &, const array2i & ), float vmax, float vmin = -1.f );
 	///

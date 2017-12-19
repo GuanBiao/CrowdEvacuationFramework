@@ -84,10 +84,12 @@ int AgentManager::addAgent(const array2i &coord) {
 			break;
 	}
 	assert(i != mPool.size() && "The agent is not enough");
-	mPool[i].mLastPos = mPool[i].mPos = coord; // an assignment operator is used
+	mPool[i].mInitPos = mPool[i].mLastPos = mPool[i].mPos = coord; // an assignment operator is used
 	mPool[i].mFacingDir = { 0.f, 0.f };
+	mPool[i].mTravelTimesteps = 0;
 	mPool[i].mIsActive = true;
 	mPool[i].mInChargeOf = STATE_NULL;
+	mPool[i].mDest = STATE_NULL;
 	mPool[i].mWhitelist.clear();
 	mPool[i].mBlacklist.clear();
 	mPool[i].mStrategy = { false, false, false };

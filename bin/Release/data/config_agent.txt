@@ -1,4 +1,4 @@
-AGENT      90
+AGENT      1000
            0
 AGENT_SIZE 0.4
 PANIC_PROB 0

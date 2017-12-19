@@ -1,10 +1,12 @@
+RANDOM_SEED           -1 -1
 TEXTURE               ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
+MAX_TRAVEL_TIMESTEPS  30
 MIN_DIST_FROM_EXITS   2
 ALPHA                 1
-INTERACTION_RADIUS    5
+INTERACTION_RADIUS    10 5
 CRITICAL_DENSITY      0.05
-KA                    10
-INIT_STRATEGY_DENSITY 1 1 0
+KA                    30
+INIT_STRATEGY_DENSITY 1 1 1
 RATIONALITY           1
 HERDING_COEFFICIENT   0.5
 MU                    0

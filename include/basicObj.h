@@ -16,26 +16,27 @@ public:
 
 class Obstacle {
 public:
-	Obstacle() : mPos{ 0, 0 }, mIsMovable(false), mIsActive(false), mIsAssigned(false) {}
+	Obstacle() : mIsActive(false) {}
 
 	array2i mPos;
 	bool mIsMovable;
 	bool mIsActive;
 	///
-	bool mIsAssigned; // true if some agent ever moves it, false otherwise
+	bool mIsAssigned;              // true if some agent ever moves it, false otherwise
 	float mPriority;
-	arrayNi mInRange; // store evacuees that are within its interaction area
+	arrayNi mInRange;              // store evacuees that are within its interaction area
+	fixed_queue<float> mDensities; // store the evacuee density at every timestep
 
 	array2i mTmpPos;  // cell the movable obstacle will be moved into at the next timestep
 };
 
 class Agent {
 public:
-	Agent() : mLastPos{ 0, 0 }, mPos { 0, 0 }, mFacingDir{ 0.f, 0.f }, mIsActive(false), mInChargeOf(STATE_NULL),
-		mStrategy{ false, false, false }, mPayoff{ 0.f, 0.f, 0.f, 0.f, 0.f, 0.f }, mNumGames{ 0, 0, 0 } {}
+	Agent() : mIsActive(false) {}
 
-	array2i mLastPos, mPos;
+	array2i mInitPos, mLastPos, mPos;
 	array2f mFacingDir;
+	int mTravelTimesteps;
 	bool mIsActive;
 	///
 	int mInChargeOf;                // store relation with the movable obstacle
