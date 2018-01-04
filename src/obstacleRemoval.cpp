@@ -1,6 +1,7 @@
 #include "obstacleRemoval.h"
 
 ObstacleRemovalModel::ObstacleRemovalModel() {
+	mMaxTravelTimesteps = INT_MAX;
 	read("./data/config_obstacleRemoval.txt", "./data/config_agent_history.txt");
 
 	// set strategies for every agent
@@ -11,17 +12,12 @@ ObstacleRemovalModel::ObstacleRemovalModel() {
 	std::shuffle(order.begin(), order.end(), mRNG_GT);
 	std::for_each(order.begin(), order.begin() + (int)(order.size() * mInitStrategyDensity[1]),
 		[&](int i) { mAgentManager.mPool[i].mStrategy[1] = true; });
-	std::shuffle(order.begin(), order.end(), mRNG_GT);
-	std::for_each(order.begin(), order.begin() + (int)(order.size() * mInitStrategyDensity[2]),
-		[&](int i) { mAgentManager.mPool[i].mStrategy[2] = true; });
 
 	mMovableObstacleMap.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	setMovableObstacleMap();
 
 	mCellsAnticipation.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	setAFF();
-
-	calcPriority();
 
 	mHistory.reserve(mAgentManager.mActiveAgents.size());
 	mFFDisplayType = 0;
@@ -52,12 +48,8 @@ void ObstacleRemovalModel::read(const char *fileName1, const char *fileName2) {
 		}
 		else if (key.compare("TEXTURE") == 0)
 			ifs >> mPathsToTexture[0] >> mPathsToTexture[1];
-		else if (key.compare("MAX_TRAVEL_TIMESTEPS") == 0)
-			ifs >> mMaxTravelTimesteps;
 		else if (key.compare("MIN_DIST_FROM_EXITS") == 0)
 			ifs >> mMinDistFromExits;
-		else if (key.compare("ALPHA") == 0)
-			ifs >> mAlpha;
 		else if (key.compare("INTERACTION_RADIUS") == 0)
 			ifs >> mInteractionRadius_o >> mInteractionRadius_v;
 		else if (key.compare("CRITICAL_DENSITY") == 0)
@@ -65,15 +57,11 @@ void ObstacleRemovalModel::read(const char *fileName1, const char *fileName2) {
 		else if (key.compare("KA") == 0)
 			ifs >> mKA;
 		else if (key.compare("INIT_STRATEGY_DENSITY") == 0)
-			ifs >> mInitStrategyDensity[0] >> mInitStrategyDensity[1] >> mInitStrategyDensity[2];
+			ifs >> mInitStrategyDensity[0] >> mInitStrategyDensity[1];
 		else if (key.compare("RATIONALITY") == 0)
 			ifs >> mRationality;
 		else if (key.compare("HERDING_COEFFICIENT") == 0)
 			ifs >> mHerdingCoefficient;
-		else if (key.compare("MU") == 0)
-			ifs >> mMu;
-		else if (key.compare("OC") == 0)
-			ifs >> mOc;
 		else if (key.compare("CC") == 0)
 			ifs >> mCc;
 		else if (key.compare("RC") == 0)
@@ -95,7 +83,10 @@ void ObstacleRemovalModel::read(const char *fileName1, const char *fileName2) {
 					arrayNi::iterator result = std::find_if(mAgentManager.mActiveAgents.begin(), mAgentManager.mActiveAgents.end(),
 						[&](int j) { return mAgentManager.mPool[j].mInitPos == coord; });
 					assert(result != mAgentManager.mActiveAgents.end() && "Agents' initial positions cannot be matched");
-					ifs >> mAgentManager.mPool[*result].mTravelTimesteps;
+					ifs >> mAgentManager.mPool[*result].mTravelTimesteps >> mAgentManager.mPool[*result].mUsedExit;
+
+					if (mMaxTravelTimesteps == INT_MAX || mAgentManager.mPool[*result].mTravelTimesteps > mMaxTravelTimesteps)
+						mMaxTravelTimesteps = mAgentManager.mPool[*result].mTravelTimesteps;
 				}
 			}
 		}
@@ -114,17 +105,13 @@ void ObstacleRemovalModel::save() const {
 	std::ofstream ofs("./data/config_obstacleRemoval_saved_" + std::string(buffer) + ".txt", std::ios::out);
 	ofs << "RANDOM_SEED           " << mRandomSeed << " " << mRandomSeed_GT << endl;
 	ofs << "TEXTURE               " << mPathsToTexture[0] << " " << mPathsToTexture[1] << endl;
-	ofs << "MAX_TRAVEL_TIMESTEPS  " << mMaxTravelTimesteps << endl;
 	ofs << "MIN_DIST_FROM_EXITS   " << mMinDistFromExits << endl;
-	ofs << "ALPHA                 " << mAlpha << endl;
 	ofs << "INTERACTION_RADIUS    " << mInteractionRadius_o << " " << mInteractionRadius_v << endl;
 	ofs << "CRITICAL_DENSITY      " << mCriticalDensity << endl;
 	ofs << "KA                    " << mKA << endl;
-	ofs << "INIT_STRATEGY_DENSITY " << mInitStrategyDensity[0] << " " << mInitStrategyDensity[1] << " " << mInitStrategyDensity[2] << endl;
+	ofs << "INIT_STRATEGY_DENSITY " << mInitStrategyDensity[0] << " " << mInitStrategyDensity[1] << endl;
 	ofs << "RATIONALITY           " << mRationality << endl;
 	ofs << "HERDING_COEFFICIENT   " << mHerdingCoefficient << endl;
-	ofs << "MU                    " << mMu << endl;
-	ofs << "OC                    " << mOc << endl;
 	ofs << "CC                    " << mCc << endl;
 	ofs << "RC                    " << mRc << endl;
 	ofs.close();
@@ -133,7 +120,7 @@ void ObstacleRemovalModel::save() const {
 	ofs.open("./data/config_agent_history_" + std::string(buffer) + ".txt", std::ios::out);
 	ofs << "AGENT      " << mHistory.size() << endl;
 	for (const auto &i : mHistory)
-		ofs << "           " << i.mInitPos[0] << " " << i.mInitPos[1] << " " << i.mTravelTimesteps << endl;
+		ofs << "           " << i.mInitPos[0] << " " << i.mInitPos[1] << " " << i.mTravelTimesteps << " " << i.mUsedExit << endl;
 	ofs.close();
 	cout << "Save successfully: " << "./data/config_agent_history_" + std::string(buffer) + ".txt" << endl;
 
@@ -188,7 +175,7 @@ void ObstacleRemovalModel::update() {
 				erase_if(mAgentManager.mPool[i].mBlacklist, [&](int j) { return !mFloorField.mPool_o[j].mIsActive; });
 			}
 		}
-		maintainDataAboutSceneChanges(UPDATE_STATIC);
+		maintainDataAboutSceneChanges_tbb(UPDATE_STATIC);
 		setMovableObstacleMap();
 
 		mFlgUpdateStatic = false;
@@ -198,21 +185,22 @@ void ObstacleRemovalModel::update() {
 	 * Check whether the agent arrives at any exit.
 	 */
 	for (size_t i = 0; i < mAgentManager.mActiveAgents.size();) {
-		for (auto &exit : mFloorField.mExits) {
-			for (const auto &e : exit.mPos) {
+		for (size_t j = 0; j < mFloorField.mExits.size(); j++) {
+			for (const auto &e : mFloorField.mExits[j].mPos) {
 				if (mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos == e) {
-					exit.mNumPassedAgents++;
-					exit.mAccumulatedTimesteps += mTimesteps;
+					mFloorField.mExits[j].mNumPassedAgents++;
+					mFloorField.mExits[j].mLeavingTimesteps = mTimesteps;
 
-					for (const auto &j : mFloorField.mActiveObstacles) {
-						if (mFloorField.mPool_o[j].mIsMovable && !mFloorField.mPool_o[j].mIsAssigned) {
-							size_t origSize = mFloorField.mPool_o[j].mInRange.size();
-							erase(mFloorField.mPool_o[j].mInRange, mAgentManager.mActiveAgents[i]);
-							if (origSize != mFloorField.mPool_o[j].mInRange.size() && !find(gameList, j))
-								gameList.push_back(j);
+					for (const auto &k : mFloorField.mActiveObstacles) {
+						if (mFloorField.mPool_o[k].mIsMovable && !mFloorField.mPool_o[k].mIsAssigned) {
+							size_t origSize = mFloorField.mPool_o[k].mInRange.size();
+							erase(mFloorField.mPool_o[k].mInRange, mAgentManager.mActiveAgents[i]);
+							if (origSize != mFloorField.mPool_o[k].mInRange.size() && !find(gameList, k))
+								gameList.push_back(k);
 						}
 					}
 
+					mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mUsedExit = j;
 					mCellStates[convertTo1D(mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos)] = TYPE_EMPTY;
 					mHistory.push_back(mAgentManager.mPool[mAgentManager.mActiveAgents[i]]);
 					mAgentManager.deleteAgent(i);
@@ -228,7 +216,7 @@ void ObstacleRemovalModel::update() {
 	mTimesteps++;
 
 	/*
-	 * Collect evacuees that should play the volunteering game.
+	 * Collect evacuees that should play the volunteer game.
 	 */
 	for (const auto &i : mFloorField.mActiveObstacles) {
 		if (mFloorField.mPool_o[i].mIsMovable && !mFloorField.mPool_o[i].mIsAssigned) {
@@ -242,18 +230,15 @@ void ObstacleRemovalModel::update() {
 							if (!find(gameList, i))
 								gameList.push_back(i);
 						}
-						else if (!find(mAgentManager.mPool[j].mWhitelist, i) && !find(mAgentManager.mPool[j].mBlacklist, i)) {
+						else if (!find(mAgentManager.mPool[j].mWhitelist, i) && !find(mAgentManager.mPool[j].mBlacklist, i)) { // effective when editing
 							if (!find(gameList, i))
 								gameList.push_back(i);
 						}
 					}
 					// evacuee j leaves the interaction area of obstacle i
-					else if (abs(mFloorField.mPool_o[i].mPos[0] - mAgentManager.mPool[j].mPos[0]) > mInteractionRadius_o &&
-						abs(mFloorField.mPool_o[i].mPos[1] - mAgentManager.mPool[j].mPos[1]) > mInteractionRadius_o) {
-						if (find(mAgentManager.mPool[j].mWhitelist, i) || find(mAgentManager.mPool[j].mBlacklist, i)) {
+					else {
+						if (find(mFloorField.mPool_o[i].mInRange, j)) {
 							erase(mFloorField.mPool_o[i].mInRange, j);
-							erase(mAgentManager.mPool[j].mWhitelist, i);
-							erase(mAgentManager.mPool[j].mBlacklist, i);
 							if (!find(gameList, i))
 								gameList.push_back(i);
 						}
@@ -272,33 +257,28 @@ void ObstacleRemovalModel::update() {
 	}
 
 	/*
-	 * Evacuees in mInRange of obstacles in gameList play the volunteering game.
+	 * Evacuees in mInRange of obstacles in gameList play the volunteer game.
 	 */
-	std::sort(gameList.begin(), gameList.end(), [&](int i, int j) { return mFloorField.mPool_o[i].mPriority > mFloorField.mPool_o[j].mPriority; });
 	for (const auto &i : gameList) {
-		solveConflict_volunteering(mFloorField.mPool_o[i].mInRange);
+		if (mFloorField.mPool_o[i].mInRange.size() == 1)
+			mAgentManager.mPool[mFloorField.mPool_o[i].mInRange[0]].mStrategy[1] = false;
+		else
+			solveConflict_volunteer_m(mFloorField.mPool_o[i].mInRange);
+
 		for (const auto &j : mFloorField.mPool_o[i].mInRange) {
 			erase(mAgentManager.mPool[j].mWhitelist, i);
 			erase(mAgentManager.mPool[j].mBlacklist, i);
-			if (mAgentManager.mPool[j].mStrategy[2])
+			if (mAgentManager.mPool[j].mStrategy[1])
 				mAgentManager.mPool[j].mWhitelist.push_back(i);
 			else
 				mAgentManager.mPool[j].mBlacklist.push_back(i);
 		}
 	}
 	if (selectMovableObstacles()) // determine the volunteers
-		maintainDataAboutSceneChanges(UPDATE_STATIC);
+		maintainDataAboutSceneChanges_tbb(UPDATE_STATIC);
 	else if (!gameList.empty())
-		std::for_each(mAgentManager.mActiveAgents.begin(), mAgentManager.mActiveAgents.end(),
-			[&](int i) { if (!mAgentManager.mPool[i].mBlacklist.empty()) customizeFloorField(mAgentManager.mPool[i]); });
-
-	/*
-	 * Compute the density around every movable obstacle.
-	 */
-	for (const auto &i : mFloorField.mActiveObstacles) {
-		if (mFloorField.mPool_o[i].mIsMovable && mMovableObstacleMap[convertTo1D(mFloorField.mPool_o[i].mPos)] != STATE_DONE)
-			mFloorField.mPool_o[i].mDensities.push(calcDensity(mFloorField.mPool_o[i]));
-	}
+		customizeFloorFieldForEvacuees_tbb();
+	calcDensity_tbb(); // compute the density around every movable obstacle
 
 	/*
 	 * Handle agent movement.
@@ -318,7 +298,7 @@ void ObstacleRemovalModel::update() {
 			}
 
 			// reconsider the destination if an obstacle is put at the original destination
-			if (mMovableObstacleMap[mAgentManager.mPool[i].mDest] == STATE_DONE)
+			if (mMovableObstacleMap[mAgentManager.mPool[i].mDest] == STATE_IDLE || mMovableObstacleMap[mAgentManager.mPool[i].mDest] == STATE_DONE)
 				selectCellToPutObstacle(mAgentManager.mPool[i]);
 			moveVolunteer(mAgentManager.mPool[i]);
 
@@ -337,7 +317,7 @@ void ObstacleRemovalModel::update() {
 	}
 
 	/*
-	 * Handle agent interaction (yielding game).
+	 * Handle agent interaction (yielder game).
 	 */
 	arrayNb processed(mAgentManager.mActiveAgents.size());
 	for (size_t i = 0; i < mAgentManager.mActiveAgents.size(); i++) {
@@ -375,7 +355,7 @@ void ObstacleRemovalModel::update() {
 		}
 
 		// pick one agent to satisfy it
-		int j = solveConflict_yielding_heterogeneous(agentsInConflict);
+		int j = solveConflict_yielder_m(agentsInConflict);
 		if (j != STATE_NULL) {
 			Agent &winner = mAgentManager.mPool[j];
 			if (winner.mInChargeOf != STATE_NULL) {
@@ -443,7 +423,7 @@ void ObstacleRemovalModel::update() {
 	/*
 	 * Update the floor field.
 	 */
-	maintainDataAboutSceneChanges(flag ? UPDATE_BOTH : UPDATE_DYNAMIC);
+	maintainDataAboutSceneChanges_tbb(flag ? UPDATE_BOTH : UPDATE_DYNAMIC);
 
 	std::chrono::duration<double> time = std::chrono::system_clock::now() - start; // stop the timer
 	mElapsedTime += time.count();
@@ -465,9 +445,9 @@ void ObstacleRemovalModel::print() const {
 	//for (int y = mFloorField.mDim[1] - 1; y >= 0; y--) {
 	//	for (int x = 0; x < mFloorField.mDim[0]; x++) {
 	//		if (mCellsAnticipation[convertTo1D(x, y)] == 0.f)
-	//			printf("--- ");
+	//			printf("-- ");
 	//		else
-	//			printf("%3.1f ", mCellsAnticipation[convertTo1D(x, y)]);
+	//			printf("%2.f ", mCellsAnticipation[convertTo1D(x, y)]);
 	//	}
 	//	printf("\n");
 	//}
@@ -484,14 +464,14 @@ void ObstacleRemovalModel::print() const {
 	//}
 
 	cout << "mActiveAgents:" << endl;
-	printf(" i |  mPos  |mStrategy|                  mPayoff                 |mInChargeOf|  mDest |mWhitelist/mBlacklist\n");
+	printf(" i |  mPos  |mStrategy|           mPayoff          |mInChargeOf|  mDest |mWhitelist/mBlacklist\n");
 	for (const auto &i : mAgentManager.mActiveAgents) {
 		const Agent &agent = mAgentManager.mPool[i];
 		printf("%3d", i);
 		printf("|(%2d, %2d)", agent.mPos[0], agent.mPos[1]);
-		printf("|(%d, %d, %d)", agent.mStrategy[0], agent.mStrategy[1], agent.mStrategy[2]);
-		printf("|(%5.1f, %5.1f)(%5.1f, %5.1f)(%5.1f, %5.1f)",
-			agent.mPayoff[0][0], agent.mPayoff[0][1], agent.mPayoff[1][0], agent.mPayoff[1][1], agent.mPayoff[2][0], agent.mPayoff[2][1]);
+		printf("|  (%d, %d) ", agent.mStrategy[0], agent.mStrategy[1]);
+		printf("|(%5.1f, %5.1f)(%5.1f, %5.1f)",
+			agent.mPayoff[0][0], agent.mPayoff[0][1], agent.mPayoff[1][0], agent.mPayoff[1][1]);
 		printf("|    %3d    ", agent.mInChargeOf);
 		if (agent.mInChargeOf != STATE_NULL)
 			printf("|(%2d, %2d)|", agent.mDest % mFloorField.mDim[0], agent.mDest / mFloorField.mDim[0]);
@@ -512,14 +492,13 @@ void ObstacleRemovalModel::print() const {
 	}
 
 	cout << "mActiveObstacles:" << endl;
-	printf(" i |  mPos  |mIsAssigned|mPriority|mInRange\n");
+	printf(" i |  mPos  |mIsAssigned|mInRange\n");
 	for (const auto &i : mFloorField.mActiveObstacles) {
 		if (mFloorField.mPool_o[i].mIsMovable) {
 			const Obstacle &obstacle = mFloorField.mPool_o[i];
 			printf("%3d", i);
 			printf("|(%2d, %2d)", obstacle.mPos[0], obstacle.mPos[1]);
-			printf("|     %d     ", obstacle.mIsAssigned);
-			printf("|  %5.3f  |", obstacle.mPriority);
+			printf("|     %d     |", obstacle.mIsAssigned);
 			if (!mFloorField.mPool_o[i].mInRange.empty()) {
 				printf("%d", mFloorField.mPool_o[i].mInRange[0]);
 				for (size_t j = 1; j < mFloorField.mPool_o[i].mInRange.size(); j++)
@@ -529,7 +508,7 @@ void ObstacleRemovalModel::print() const {
 		}
 	}
 
-	cout << "==============================================================================================================" << endl;
+	cout << "====================================================================================================" << endl;
 }
 
 void ObstacleRemovalModel::print(const arrayNf &cells) const {
@@ -554,7 +533,7 @@ void ObstacleRemovalModel::draw() const {
 		for (int y = 0; y < mFloorField.mDim[1]; y++) {
 			for (int x = 0; x < mFloorField.mDim[0]; x++) {
 				if (mCellsAnticipation[convertTo1D(x, y)] > 0.f) {
-					array3f color = getColorJet(mCellsAnticipation[convertTo1D(x, y)], 0.5f, 1.5f);
+					array3f color = getColorJet(mCellsAnticipation[convertTo1D(x, y)], 1.f, 3.f);
 					glColor3fv(color.data());
 
 					drawSquare((float)x, (float)y, mFloorField.mCellSize);
@@ -584,7 +563,7 @@ void ObstacleRemovalModel::draw() const {
 			else
 				drawFilledCircleWithTexture(x, y, r, 10, mAgentManager.mPool[i].mFacingDir, mTextures[0]);
 			break;
-		case 1: // show the strategy for giving way (heterogeneous)
+		case 1: // show the strategy for the yielder game
 			glLineWidth(3.f);
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 				if (mAgentManager.mPool[i].mStrategy[0])
@@ -604,7 +583,7 @@ void ObstacleRemovalModel::draw() const {
 				drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 			}
 			break;
-		case 2: // show the strategy for giving way (homogeneous)
+		case 2: // show the strategy for the volunteer game
 			glLineWidth(3.f);
 			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
 				if (mAgentManager.mPool[i].mStrategy[1])
@@ -636,6 +615,19 @@ void ObstacleRemovalModel::draw() const {
 				glColor3fv(getColorJet(mAgentManager.mPool[i].mTravelTimesteps, 0, mMaxTravelTimesteps).data());
 			}
 			drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
+			break;
+		case 4: // show the exit it passed
+			glLineWidth(3.f);
+			glColor3fv(getColorJet(mAgentManager.mPool[i].mUsedExit, 0, mFloorField.mExits.size() - 1).data());
+			if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL) {
+				drawFilledCircle(x, y, r, 10);
+				glColor3f(1.f, 1.f, 1.f);
+			}
+			else {
+				drawCircle(x, y, r, 10);
+				glColor3fv(getColorJet(mAgentManager.mPool[i].mUsedExit, 0, mFloorField.mExits.size() - 1).data());
+			}
+			drawLine(x, y, r, mAgentManager.mPool[i].mFacingDir);
 		}
 	}
 }
@@ -664,40 +656,35 @@ void ObstacleRemovalModel::setTextures() {
 }
 
 bool ObstacleRemovalModel::selectMovableObstacles() {
-	arrayNi obsList;
-	for (const auto &i : mFloorField.mActiveObstacles) {
-		if (mFloorField.mPool_o[i].mIsMovable && !mFloorField.mPool_o[i].mIsAssigned)
-			obsList.push_back(i);
-	}
-	std::sort(obsList.begin(), obsList.end(), [&](int i, int j) { return mFloorField.mPool_o[i].mPriority > mFloorField.mPool_o[j].mPriority; });
-
 	bool flag = false; // true if some evacuees turn into volunteers
-	for (const auto &i : obsList) {
-		arrayNi candidates;
-		for (const auto &j : mFloorField.mPool_o[i].mInRange) {
-			// evacuee j is right next to obstacle i and also wants to remove it
-			if (abs(mFloorField.mPool_o[i].mPos[0] - mAgentManager.mPool[j].mPos[0]) <= 1 &&
-				abs(mFloorField.mPool_o[i].mPos[1] - mAgentManager.mPool[j].mPos[1]) <= 1 &&
-				find(mAgentManager.mPool[j].mWhitelist, i))
-				candidates.push_back(j);
-		}
-
-		if (!candidates.empty()) {
-			int j = candidates[(int)(mDistribution(mRNG_GT) * candidates.size())];
-			mMovableObstacleMap[convertTo1D(mFloorField.mPool_o[i].mPos)] = j;
-			mFloorField.mPool_o[i].mIsAssigned = true;
-			mAgentManager.mPool[j].mFacingDir = norm(mAgentManager.mPool[j].mPos, mFloorField.mPool_o[i].mPos);
-			mAgentManager.mPool[j].mInChargeOf = i;
-			mAgentManager.mPool[j].mWhitelist.clear();
-			mAgentManager.mPool[j].mBlacklist.clear();
-			selectCellToPutObstacle(mAgentManager.mPool[j]);
-			flag = true;
-
-			for (const auto &k : mFloorField.mPool_o[i].mInRange) {
-				erase(mAgentManager.mPool[k].mWhitelist, i);
-				erase(mAgentManager.mPool[k].mBlacklist, i);
+	for (const auto &i : mFloorField.mActiveObstacles) {
+		if (mFloorField.mPool_o[i].mIsMovable && !mFloorField.mPool_o[i].mIsAssigned) {
+			arrayNi candidates;
+			for (const auto &j : mFloorField.mPool_o[i].mInRange) {
+				// evacuee j is right next to obstacle i and also wants to remove it
+				if (abs(mFloorField.mPool_o[i].mPos[0] - mAgentManager.mPool[j].mPos[0]) <= 1 &&
+					abs(mFloorField.mPool_o[i].mPos[1] - mAgentManager.mPool[j].mPos[1]) <= 1 &&
+					find(mAgentManager.mPool[j].mWhitelist, i))
+					candidates.push_back(j);
 			}
-			mFloorField.mPool_o[i].mInRange.clear();
+
+			if (!candidates.empty()) {
+				int j = candidates[(int)(mDistribution(mRNG_GT) * candidates.size())];
+				mMovableObstacleMap[convertTo1D(mFloorField.mPool_o[i].mPos)] = j;
+				mFloorField.mPool_o[i].mIsAssigned = true;
+				mAgentManager.mPool[j].mFacingDir = norm(mAgentManager.mPool[j].mPos, mFloorField.mPool_o[i].mPos);
+				mAgentManager.mPool[j].mInChargeOf = i;
+				mAgentManager.mPool[j].mWhitelist.clear();
+				mAgentManager.mPool[j].mBlacklist.clear();
+				selectCellToPutObstacle(mAgentManager.mPool[j]);
+				flag = true;
+
+				for (const auto &k : mFloorField.mPool_o[i].mInRange) {
+					erase(mAgentManager.mPool[k].mWhitelist, i);
+					erase(mAgentManager.mPool[k].mBlacklist, i);
+				}
+				mFloorField.mPool_o[i].mInRange.clear();
+			}
 		}
 	}
 	return flag;
@@ -851,18 +838,21 @@ void ObstacleRemovalModel::maintainDataAboutSceneChanges(int type) {
 	setAFF();
 	std::transform(mFloorField.mCells.begin(), mFloorField.mCells.end(), mCellsAnticipation.begin(), mFloorField.mCells.begin(),
 		[=](float i, float j) { return i - mKA * j; });
+
+	setCompanionForEvacuees();
 	for (const auto &i : mAgentManager.mActiveAgents) {
-		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL || !mAgentManager.mPool[i].mBlacklist.empty())
+		if (mAgentManager.mPool[i].mInChargeOf != STATE_NULL || (!mAgentManager.mPool[i].mBlacklist.empty() && mAgentManager.mPool[i].mCompanion == STATE_NULL))
 			customizeFloorField(mAgentManager.mPool[i]);
 	}
-	calcPriority();
+	syncFloorFieldForEvacuees();
 }
 
 void ObstacleRemovalModel::customizeFloorField(Agent &agent) const {
+	assert(((agent.mInChargeOf != STATE_NULL && agent.mDest != STATE_NULL) || !agent.mBlacklist.empty()) && "Error when customizing the floor field");
 	agent.mCells.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
 	std::fill(agent.mCells.begin(), agent.mCells.end(), INIT_WEIGHT);
 
-	if (agent.mDest != STATE_NULL) { // for volunteers
+	if (agent.mInChargeOf != STATE_NULL) { // for volunteers
 		agent.mCells[agent.mDest] = EXIT_WEIGHT;
 		for (const auto &exit : mFloorField.mExits) {
 			for (const auto &e : exit.mPos)
@@ -874,25 +864,56 @@ void ObstacleRemovalModel::customizeFloorField(Agent &agent) const {
 		}
 		mFloorField.evaluateCells(agent.mDest, agent.mCells);
 	}
-	else if (!agent.mBlacklist.empty()) { // for evacuees
+	else { // for evacuees
+		arrayNf cells_e(agent.mCells);
 		for (const auto &i : agent.mBlacklist)
-			agent.mCells[convertTo1D(mFloorField.mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
+			agent.mCells[convertTo1D(mFloorField.mPool_o[i].mPos)] = cells_e[convertTo1D(mFloorField.mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
 		for (const auto &i : mFloorField.mActiveObstacles) {
 			if (mFloorField.mPool_o[i].mIsMovable && !mFloorField.mPool_o[i].mIsAssigned)
 				continue;
-			agent.mCells[convertTo1D(mFloorField.mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
+			agent.mCells[convertTo1D(mFloorField.mPool_o[i].mPos)] = cells_e[convertTo1D(mFloorField.mPool_o[i].mPos)] = OBSTACLE_WEIGHT;
 		}
+
+		int totalSize = 0;
+		std::for_each(mFloorField.mExits.begin(), mFloorField.mExits.end(), [&](const Exit &exit) { totalSize += exit.mPos.size(); });
 		for (const auto &exit : mFloorField.mExits) {
+			float offset_hv = exp(-1.f * exit.mPos.size() / totalSize);
 			for (const auto &e : exit.mPos) {
-				agent.mCells[convertTo1D(e)] = EXIT_WEIGHT;
+				agent.mCells[convertTo1D(e)] = cells_e[convertTo1D(e)] = EXIT_WEIGHT;
 				mFloorField.evaluateCells(convertTo1D(e), agent.mCells);
+				mFloorField.evaluateCells(convertTo1D(e), cells_e, offset_hv);
 			}
 		}
 
 		for (size_t i = 0; i < agent.mCells.size(); i++) {
 			if (!(agent.mCells[i] == INIT_WEIGHT || agent.mCells[i] == OBSTACLE_WEIGHT))
-				agent.mCells[i] = -mFloorField.mKS * agent.mCells[i] + mFloorField.mKD * mFloorField.mCellsDynamic[i] - mFloorField.mKE * mFloorField.mCellsStatic_e[i];
+				agent.mCells[i] = -mFloorField.mKS * agent.mCells[i] + mFloorField.mKD * mFloorField.mCellsDynamic[i] - mFloorField.mKE * cells_e[i];
 			agent.mCells[i] -= mKA * mCellsAnticipation[i];
+		}
+	}
+}
+
+void ObstacleRemovalModel::syncFloorFieldForEvacuees() {
+	for (const auto &i : mAgentManager.mActiveAgents) {
+		if (!mAgentManager.mPool[i].mBlacklist.empty() && mAgentManager.mPool[i].mCompanion != STATE_NULL) {
+			mAgentManager.mPool[i].mCells.resize(mFloorField.mDim[0] * mFloorField.mDim[1]);
+			std::copy(mAgentManager.mPool[mAgentManager.mPool[i].mCompanion].mCells.begin(), mAgentManager.mPool[mAgentManager.mPool[i].mCompanion].mCells.end(), mAgentManager.mPool[i].mCells.begin());
+		}
+	}
+}
+
+void ObstacleRemovalModel::setCompanionForEvacuees() {
+	std::for_each(mAgentManager.mActiveAgents.begin(), mAgentManager.mActiveAgents.end(),
+		[&](int i) { std::sort(mAgentManager.mPool[i].mBlacklist.begin(), mAgentManager.mPool[i].mBlacklist.end()); mAgentManager.mPool[i].mCompanion = STATE_NULL; });
+	for (size_t i_ = 0; i_ < mAgentManager.mActiveAgents.size(); i_++) {
+		int i = mAgentManager.mActiveAgents[i_];
+		if (!mAgentManager.mPool[i].mBlacklist.empty() && mAgentManager.mPool[i].mCompanion == STATE_NULL) {
+			for (size_t j_ = i_ + 1; j_ < mAgentManager.mActiveAgents.size(); j_++) {
+				int j = mAgentManager.mActiveAgents[j_];
+				if (!mAgentManager.mPool[j].mBlacklist.empty() && mAgentManager.mPool[j].mCompanion == STATE_NULL &&
+					std::equal(mAgentManager.mPool[i].mBlacklist.begin(), mAgentManager.mPool[i].mBlacklist.end(), mAgentManager.mPool[j].mBlacklist.begin(), mAgentManager.mPool[j].mBlacklist.end()))
+					mAgentManager.mPool[j].mCompanion = i;
+			}
 		}
 	}
 }
@@ -938,21 +959,21 @@ void ObstacleRemovalModel::setAFF() {
 							int diff_x = abs(x);
 							int diff_y = abs(y);
 							if (diff_x * 3 <= half_r && diff_y * 3 <= half_r)
-								mCellsAnticipation[index] += 1.5f;
+								mCellsAnticipation[index] += 3.f;
 							else if (diff_x * 3 <= half_r * 2 && diff_y * 3 <= half_r * 2)
-								mCellsAnticipation[index] += 1.f;
+								mCellsAnticipation[index] += 2.f;
 							else if (diff_x <= half_r && diff_y <= half_r)
-								mCellsAnticipation[index] += 0.5f;
+								mCellsAnticipation[index] += 1.f;
 						}
 						else {
 							int diff_x = abs(agent.mPos[0] + x - mFloorField.mPool_o[agent.mInChargeOf].mPos[0]);
 							int diff_y = abs(agent.mPos[1] + y - mFloorField.mPool_o[agent.mInChargeOf].mPos[1]);
 							if (diff_x * 3 <= r && diff_y * 3 <= r)
-								mCellsAnticipation[index] += 1.5f;
+								mCellsAnticipation[index] += 3.f;
 							else if (diff_x * 3 <= r * 2 && diff_y * 3 <= r * 2)
-								mCellsAnticipation[index] += 1.f;
+								mCellsAnticipation[index] += 2.f;
 							else if (diff_x <= r && diff_y <= r)
-								mCellsAnticipation[index] += 0.5f;
+								mCellsAnticipation[index] += 1.f;
 						}
 					}
 				}
@@ -961,50 +982,31 @@ void ObstacleRemovalModel::setAFF() {
 	}
 }
 
-void ObstacleRemovalModel::calcPriority() {
+void ObstacleRemovalModel::calcDensity() {
+	int r = (int)ceil(mInteractionRadius_o);
 	for (const auto &i : mFloorField.mActiveObstacles) {
-		if (mFloorField.mPool_o[i].mIsMovable && !mFloorField.mPool_o[i].mIsAssigned) {
-			int curIndex = convertTo1D(mFloorField.mPool_o[i].mPos), adjIndex;
-			int numEmptyNeighbors = 0;
-
-			for (int y = -1; y < 2; y++) {
-				for (int x = -1; x < 2; x++) {
+		if (mFloorField.mPool_o[i].mIsMovable && mMovableObstacleMap[convertTo1D(mFloorField.mPool_o[i].mPos)] != STATE_DONE) {
+			Obstacle &obstacle = mFloorField.mPool_o[i];
+			int adjIndex, numEvacuees = 0, numNonObsCells = 0;
+			for (int y = -r; y <= r; y++) {
+				for (int x = -r; x <= r; x++) {
 					if (y == 0 && x == 0)
 						continue;
 
-					adjIndex = curIndex + y * mFloorField.mDim[0] + x;
-					if (mFloorField.mPool_o[i].mPos[0] + x >= 0 && mFloorField.mPool_o[i].mPos[0] + x < mFloorField.mDim[0] &&
-						mFloorField.mPool_o[i].mPos[1] + y >= 0 && mFloorField.mPool_o[i].mPos[1] + y < mFloorField.mDim[1] &&
-						(mCellStates[adjIndex] == TYPE_EMPTY || mCellStates[adjIndex] == TYPE_AGENT))
-						numEmptyNeighbors++;
+					adjIndex = convertTo1D(obstacle.mPos[0] + x, obstacle.mPos[1] + y);
+					if (obstacle.mPos[0] + x >= 0 && obstacle.mPos[0] + x < mFloorField.mDim[0] &&
+						obstacle.mPos[1] + y >= 0 && obstacle.mPos[1] + y < mFloorField.mDim[1] &&
+						!(mCellStates[adjIndex] == TYPE_MOVABLE_OBSTACLE || mCellStates[adjIndex] == TYPE_IMMOVABLE_OBSTACLE)) {
+						if (mCellStates[adjIndex] == TYPE_AGENT &&
+							mAgentManager.mPool[mAgentManager.mActiveAgents[*mAgentManager.isExisting(array2i{ obstacle.mPos[0] + x, obstacle.mPos[1] + y })]].mInChargeOf == STATE_NULL)
+							numEvacuees++;
+						numNonObsCells++;
+					}
 				}
 			}
-
-			mFloorField.mPool_o[i].mPriority = numEmptyNeighbors == 0 ? 0.f : mAlpha / mFloorField.mCellsStatic[curIndex] + numEmptyNeighbors / 8.f;
+			obstacle.mDensities.push((float)numEvacuees / numNonObsCells);
 		}
 	}
-}
-
-float ObstacleRemovalModel::calcDensity(const Obstacle &obstacle) const {
-	int r = (int)ceil(mInteractionRadius_o);
-	int adjIndex, numEvacuees = 0, numNonObsCells = 0;
-	for (int y = -r; y <= r; y++) {
-		for (int x = -r; x <= r; x++) {
-			if (y == 0 && x == 0)
-				continue;
-
-			adjIndex = convertTo1D(obstacle.mPos[0] + x, obstacle.mPos[1] + y);
-			if (obstacle.mPos[0] + x >= 0 && obstacle.mPos[0] + x < mFloorField.mDim[0] &&
-				obstacle.mPos[1] + y >= 0 && obstacle.mPos[1] + y < mFloorField.mDim[1] &&
-				!(mCellStates[adjIndex] == TYPE_MOVABLE_OBSTACLE || mCellStates[adjIndex] == TYPE_IMMOVABLE_OBSTACLE)) {
-				if (mCellStates[adjIndex] == TYPE_AGENT &&
-					mAgentManager.mPool[mAgentManager.mActiveAgents[*mAgentManager.isExisting(array2i{ obstacle.mPos[0] + x, obstacle.mPos[1] + y })]].mInChargeOf == STATE_NULL)
-					numEvacuees++;
-				numNonObsCells++;
-			}
-		}
-	}
-	return (float)numEvacuees / numNonObsCells;
 }
 
 int ObstacleRemovalModel::getFreeCell_if(const arrayNf &cells, const array2i &pos1, const array2i &pos2,

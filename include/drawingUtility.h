@@ -6,12 +6,12 @@
 
 #include "container.h"
 
-static void drawSquare(float x, float y, const array2f &len) {
+static void drawSquare(float x, float y, float len) {
 	glBegin(GL_QUADS);
-	glVertex3f(len[0] * x, len[1] * y, 0.f);
-	glVertex3f(len[0] * (x + 1), len[1] * y, 0.f);
-	glVertex3f(len[0] * (x + 1), len[1] * (y + 1), 0.f);
-	glVertex3f(len[0] * x, len[1] * (y + 1), 0.f);
+	glVertex3f(len * x, len * y, 0.f);
+	glVertex3f(len * (x + 1), len * y, 0.f);
+	glVertex3f(len * (x + 1), len * (y + 1), 0.f);
+	glVertex3f(len * x, len * (y + 1), 0.f);
 	glEnd();
 }
 

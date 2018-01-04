@@ -37,8 +37,7 @@
 /*
  * Define game types.
  */
-#define GAME_YIELDING_HETERO    0
-#define GAME_YIELDING_HOMO      1
-#define GAME_VOLUNTEERING       2
+#define GAME_YIELDING           0
+#define GAME_VOLUNTEERING       1
 
 #endif

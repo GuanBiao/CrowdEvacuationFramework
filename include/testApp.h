@@ -6,9 +6,7 @@
 class TestApp {
 public:
 	int mNumExpts;
-	float mMuInit, mOcInit, mCcInit, mRcInit;
-	float mMuStep, mOcStep, mCcStep, mRcStep;
-	int mMuCount, mOcCount, mCcCount, mRcCount;
+	arrayNf mCcRange, mRcRange;
 
 	TestApp();
 	void read( const char *fileName );

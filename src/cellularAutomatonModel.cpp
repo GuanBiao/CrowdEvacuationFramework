@@ -48,7 +48,7 @@ void CellularAutomatonModel::update() {
 					mAgentManager.deleteAgent(i);
 
 					exit.mNumPassedAgents++;
-					exit.mAccumulatedTimesteps += mTimesteps;
+					exit.mLeavingTimesteps = mTimesteps;
 
 					goto label;
 				}
@@ -128,9 +128,9 @@ void CellularAutomatonModel::showExitStatistics() const {
 	printf("------------------ Summary ------------------\n");
 	for (size_t i = 0; i < mFloorField.mExits.size(); i++) {
 		printf("Exit %2d:\n", i);
-		printf(" Number of passed agents     : %d\n", mFloorField.mExits[i].mNumPassedAgents);
-		printf(" Average evacuation timesteps: %f\n", (mFloorField.mExits[i].mNumPassedAgents > 0
-			? (float)mFloorField.mExits[i].mAccumulatedTimesteps / mFloorField.mExits[i].mNumPassedAgents
+		printf(" Number of passed agents : %d\n", mFloorField.mExits[i].mNumPassedAgents);
+		printf(" Egress rate (p/m/s)     : %f\n", (mFloorField.mExits[i].mNumPassedAgents > 0
+			? mFloorField.mExits[i].mNumPassedAgents / (mFloorField.mExits[i].mPos.size() * mFloorField.mCellSize) / (mFloorField.mExits[i].mLeavingTimesteps * 0.3f)
 			: 0.f));
 	}
 	printf("---------------------------------------------\n");
@@ -141,7 +141,7 @@ void CellularAutomatonModel::refreshTimer() {
 }
 
 void CellularAutomatonModel::editExit(const array2f &worldCoord) {
-	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) };
+	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize), (int)floor(worldCoord[1] / mFloorField.mCellSize) };
 	int index = convertTo1D(coord);
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])
@@ -155,7 +155,7 @@ void CellularAutomatonModel::editExit(const array2f &worldCoord) {
 }
 
 void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool isMovable) {
-	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) };
+	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize), (int)floor(worldCoord[1] / mFloorField.mCellSize) };
 	int index = convertTo1D(coord);
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])
@@ -172,7 +172,7 @@ void CellularAutomatonModel::editObstacle(const array2f &worldCoord, bool isMova
 }
 
 void CellularAutomatonModel::editAgent(const array2f &worldCoord) {
-	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize[0]), (int)floor(worldCoord[1] / mFloorField.mCellSize[1]) };
+	array2i coord{ (int)floor(worldCoord[0] / mFloorField.mCellSize), (int)floor(worldCoord[1] / mFloorField.mCellSize) };
 	int index = convertTo1D(coord);
 
 	if (coord[0] < 0 || coord[0] >= mFloorField.mDim[0] || coord[1] < 0 || coord[1] >= mFloorField.mDim[1])

@@ -133,7 +133,7 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 		mOpenGLApp->mModel.update();
 		break;
 	case 'v': // show agents in different modes
-		mOpenGLApp->mAgentVisualizationType = ++mOpenGLApp->mAgentVisualizationType % 4;
+		mOpenGLApp->mAgentVisualizationType = ++mOpenGLApp->mAgentVisualizationType % 5;
 		mOpenGLApp->mModel.mAgentVisualizationType = mOpenGLApp->mAgentVisualizationType;
 		break;
 	case 'r': // take a screenshot

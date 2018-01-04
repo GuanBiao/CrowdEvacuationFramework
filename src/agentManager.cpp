@@ -87,14 +87,14 @@ int AgentManager::addAgent(const array2i &coord) {
 	mPool[i].mInitPos = mPool[i].mLastPos = mPool[i].mPos = coord; // an assignment operator is used
 	mPool[i].mFacingDir = { 0.f, 0.f };
 	mPool[i].mTravelTimesteps = 0;
+	mPool[i].mUsedExit = STATE_NULL;
 	mPool[i].mIsActive = true;
 	mPool[i].mInChargeOf = STATE_NULL;
-	mPool[i].mDest = STATE_NULL;
 	mPool[i].mWhitelist.clear();
 	mPool[i].mBlacklist.clear();
-	mPool[i].mStrategy = { false, false, false };
-	mPool[i].mPayoff[0] = mPool[i].mPayoff[1] = mPool[i].mPayoff[2] = { 0.f, 0.f };
-	mPool[i].mNumGames = { 0, 0, 0 };
+	mPool[i].mStrategy = { false, false };
+	mPool[i].mPayoff[0] = mPool[i].mPayoff[1] = { 0.f, 0.f };
+	mPool[i].mNumGames = { 0, 0 };
 
 	return i;
 }

@@ -11,7 +11,7 @@ void FloorField::read(const char *fileName) {
 		if (key.compare("DIM") == 0)
 			ifs >> mDim[0] >> mDim[1];
 		else if (key.compare("CELL_SIZE") == 0)
-			ifs >> mCellSize[0] >> mCellSize[1];
+			ifs >> mCellSize;
 		else if (key.compare("EXIT") == 0) {
 			int numExits;
 			ifs >> numExits;
@@ -104,7 +104,7 @@ void FloorField::save() const {
 	std::ofstream ofs("./data/config_floorField_saved_" + std::string(buffer) + ".txt", std::ios::out);
 
 	ofs << "DIM             " << mDim[0] << " " << mDim[1] << endl;
-	ofs << "CELL_SIZE       " << mCellSize[0] << " " << mCellSize[1] << endl;
+	ofs << "CELL_SIZE       " << mCellSize << endl;
 
 	ofs << "EXIT            " << mExits.size() << endl;
 	for (const auto &exit : mExits) {
@@ -196,7 +196,8 @@ void FloorField::print() const {
 	}
 }
 
-void FloorField::evaluateCells(int root, arrayNf &floorField) const {
+void FloorField::evaluateCells(int root, arrayNf &floorField, float offset_hv) const {
+	float offset_d = offset_hv * mLambda;
 	std::queue<int> toDoList;
 	toDoList.push(root);
 
@@ -215,7 +216,7 @@ void FloorField::evaluateCells(int root, arrayNf &floorField) const {
 				if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
 					cell[1] + y >= 0 && cell[1] + y < mDim[1] &&
 					floorField[adjIndex] != OBSTACLE_WEIGHT) {
-					offset = (x == 0 || y == 0) ? 1.f : mLambda;
+					offset = (x == 0 || y == 0) ? offset_hv : offset_d;
 					if (floorField[adjIndex] > floorField[curIndex] + offset) {
 						floorField[adjIndex] = floorField[curIndex] + offset;
 						toDoList.push(adjIndex);
@@ -415,28 +416,28 @@ void FloorField::draw() const {
 
 void FloorField::drawExit(const array2i &pos) const {
 	glBegin(GL_LINE_STRIP);
-	glVertex3f(mCellSize[0] * pos[0], mCellSize[1] * pos[1], 0.f);
-	glVertex3f(mCellSize[0] * pos[0], mCellSize[1] * (pos[1] + 1), 0.f);
-	glVertex3f(mCellSize[0] * (pos[0] + 1), mCellSize[1] * pos[1], 0.f);
-	glVertex3f(mCellSize[0] * (pos[0] + 1), mCellSize[1] * (pos[1] + 1), 0.f);
+	glVertex3f(mCellSize * pos[0], mCellSize * pos[1], 0.f);
+	glVertex3f(mCellSize * pos[0], mCellSize * (pos[1] + 1), 0.f);
+	glVertex3f(mCellSize * (pos[0] + 1), mCellSize * pos[1], 0.f);
+	glVertex3f(mCellSize * (pos[0] + 1), mCellSize * (pos[1] + 1), 0.f);
 	glEnd();
 	glBegin(GL_LINE_STRIP);
-	glVertex3f(mCellSize[0] * pos[0], mCellSize[1] * (pos[1] + 1), 0.f);
-	glVertex3f(mCellSize[0] * (pos[0] + 1), mCellSize[1] * (pos[1] + 1), 0.f);
-	glVertex3f(mCellSize[0] * pos[0], mCellSize[1] * pos[1], 0.f);
-	glVertex3f(mCellSize[0] * (pos[0] + 1), mCellSize[1] * pos[1], 0.f);
+	glVertex3f(mCellSize * pos[0], mCellSize * (pos[1] + 1), 0.f);
+	glVertex3f(mCellSize * (pos[0] + 1), mCellSize * (pos[1] + 1), 0.f);
+	glVertex3f(mCellSize * pos[0], mCellSize * pos[1], 0.f);
+	glVertex3f(mCellSize * (pos[0] + 1), mCellSize * pos[1], 0.f);
 	glEnd();
 }
 
 void FloorField::drawGrid() const {
 	glBegin(GL_LINES);
 	for (int i = 0; i <= mDim[0]; i++) {
-		glVertex3f(mCellSize[0] * i, 0.f, 0.f);
-		glVertex3f(mCellSize[0] * i, mCellSize[1] * mDim[1], 0.f);
+		glVertex3f(mCellSize * i, 0.f, 0.f);
+		glVertex3f(mCellSize * i, mCellSize * mDim[1], 0.f);
 	}
 	for (int i = 0; i <= mDim[1]; i++) {
-		glVertex3f(0.f, mCellSize[1] * i, 0.f);
-		glVertex3f(mCellSize[0] * mDim[0], mCellSize[1] * i, 0.f);
+		glVertex3f(0.f, mCellSize * i, 0.f);
+		glVertex3f(mCellSize * mDim[0], mCellSize * i, 0.f);
 	}
 	glEnd();
 }
@@ -661,37 +662,10 @@ void FloorField::updateCellsStatic_p() {
 	int totalSize = 0;
 	std::for_each(mExits.begin(), mExits.end(), [&](const Exit &exit) { totalSize += exit.mPos.size(); });
 	for (const auto &exit : mExits) {
+		float offset_hv = exp(-1.f * exit.mPos.size() / totalSize);
 		for (const auto &e : exit.mPos) {
-			float offset_hv = exp(-1.f * exit.mPos.size() / totalSize);
-			float offset_d = offset_hv * mLambda;
 			mCellsStatic_e[convertTo1D(e)] = EXIT_WEIGHT;
-
-			std::queue<int> toDoList;
-			toDoList.push(convertTo1D(e));
-			while (!toDoList.empty()) {
-				int curIndex = toDoList.front(), adjIndex;
-				float offset;
-				array2i cell = { curIndex % mDim[0], curIndex / mDim[0] };
-				toDoList.pop();
-
-				for (int y = -1; y < 2; y++) {
-					for (int x = -1; x < 2; x++) {
-						if (y == 0 && x == 0)
-							continue;
-
-						adjIndex = curIndex + y * mDim[0] + x;
-						if (cell[0] + x >= 0 && cell[0] + x < mDim[0] &&
-							cell[1] + y >= 0 && cell[1] + y < mDim[1] &&
-							mCellsStatic_e[adjIndex] != OBSTACLE_WEIGHT) {
-							offset = (x == 0 || y == 0) ? offset_hv : offset_d;
-							if (mCellsStatic_e[adjIndex] > mCellsStatic_e[curIndex] + offset) {
-								mCellsStatic_e[adjIndex] = mCellsStatic_e[curIndex] + offset;
-								toDoList.push(adjIndex);
-							}
-						}
-					}
-				}
-			}
+			evaluateCells(convertTo1D(e), mCellsStatic_e, offset_hv);
 		}
 	}
 }

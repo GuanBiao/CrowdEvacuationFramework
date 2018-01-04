@@ -22,9 +22,9 @@ using std::endl;
 
 class FloorField {
 public:
-	array2i mDim;       // [0]: width, [1]: height
-	array2f mCellSize;  // [0]: width, [1]: height
-	arrayNf mCells;     // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
+	array2i mDim;    // [0]: width, [1]: height
+	float mCellSize;
+	arrayNf mCells;  // store the final floor field (use [y-coordinate * mDim[0] + x-coordinate] to access elements)
 	arrayNf mCellsStatic, mCellsStatic_e, mCellsDynamic;
 	std::vector<Exit> mExits;
 	std::vector<Obstacle> mPool_o;
@@ -44,7 +44,7 @@ public:
 	void update_p( int type );
 	///
 	void print() const;
-	void evaluateCells( int root, arrayNf &floorField ) const;
+	void evaluateCells( int root, arrayNf &floorField, float offset_hv = 1.f ) const;
 
 	/*
 	 * Editing.
