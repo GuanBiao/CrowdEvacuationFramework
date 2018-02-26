@@ -129,7 +129,7 @@ void OpenGLApp::keyboardCallback(unsigned char key, int x, int y) {
 	case 27: // 'Esc' key
 		exit(1);
 		break;
-	case 'n': // advance one step
+	case 'n': // advance one timestep
 		mOpenGLApp->mModel.update();
 		break;
 	case 'v': // show agents in different modes

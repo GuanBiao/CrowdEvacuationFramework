@@ -4,7 +4,7 @@ bool AgentManager::read(const char *fileName) {
 	std::ifstream ifs(fileName, std::ios::in);
 	assert(ifs.good());
 
-	mPool.resize(1024); // create a pool that holds 1024 agents (the default constructor is used)
+	mPool.resize(2048); // create a pool that holds 2048 agents (the default constructor is used)
 
 	bool isAgentProvided;
 	std::string key;
@@ -84,17 +84,16 @@ int AgentManager::addAgent(const array2i &coord) {
 			break;
 	}
 	assert(i != mPool.size() && "The agent is not enough");
-	mPool[i].mInitPos = mPool[i].mLastPos = mPool[i].mPos = coord; // an assignment operator is used
+	mPool[i].mInitPos = mPool[i].mLastPos = mPool[i].mPos = coord;
 	mPool[i].mFacingDir = { 0.f, 0.f };
 	mPool[i].mTravelTimesteps = 0;
 	mPool[i].mUsedExit = STATE_NULL;
 	mPool[i].mIsActive = true;
+	mPool[i].mHasVolunteerExperience = false;
 	mPool[i].mInChargeOf = STATE_NULL;
 	mPool[i].mWhitelist.clear();
 	mPool[i].mBlacklist.clear();
 	mPool[i].mStrategy = { false, false };
-	mPool[i].mPayoff[0] = mPool[i].mPayoff[1] = { 0.f, 0.f };
-	mPool[i].mNumGames = { 0, 0 };
 
 	return i;
 }

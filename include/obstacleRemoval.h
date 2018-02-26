@@ -9,15 +9,15 @@
 class ObstacleRemovalModel : public CellularAutomatonModel {
 public:
 	std::string mPathsToTexture[2];
-	int mMaxTravelTimesteps;      // used for displaying every agent's mTravelTimesteps
+	int mMaxStrength;
 	float mMinDistFromExits;
-	float mInteractionRadius_o, mInteractionRadius_v;
-	float mCriticalDensity;
+	float mInterferenceRadius;
+	float mInfluenceRadius;
+	float mEvacueeDensity;
 	float mKA;
-	array2f mInitStrategyDensity; // [0]: yielder, [1]: volunteer
-	float mRationality;
-	float mHerdingCoefficient;
-	float mCc, mRc;
+	float mCy, mCv;
+	int mTimestepToRemove;
+	int mMaxTravelTimesteps; // used for displaying every agent's mTravelTimesteps
 	///
 	std::vector<Agent> mHistory;
 	///
@@ -56,12 +56,16 @@ private:
 	void setMovableObstacleMap();
 	void setAFF();
 	void calcDensity();
+	float calcBlockedProportion( const Obstacle &obstacle ) const;
 	int getFreeCell_if( const arrayNf &cells, const array2i &pos1, const array2i &pos2,
 		bool (*cond)( const array2i &, const array2i &, const array2i & ), float vmax, float vmin = -1.f );
 	///
 	inline bool find( const arrayNi &vec, int val ) const { return std::find(vec.begin(), vec.end(), val) != vec.end() ? true : false; }
 	inline void erase( arrayNi &vec, int val ) const { vec.erase(std::remove(vec.begin(), vec.end(), val), vec.end()); }
 	inline void erase_if( arrayNi &vec, std::function<bool(int)> cond ) const { vec.erase(std::remove_if(vec.begin(), vec.end(), cond), vec.end()); }
+	inline float calcVecLen( int x, int y ) const { return std::min(x, y) * mFloorField.mLambda + abs(x - y); }
+	inline bool isWithinInterferenceArea( const array2i &obstacle, const array2i &pos ) const {
+		return calcVecLen(abs(obstacle[0] - pos[0]), abs(obstacle[1] - pos[1])) <= mInterferenceRadius ? true : false; }
 
 	/*
 	 * The definitions are in obstacleRemoval_tbb.cpp.
@@ -74,12 +78,7 @@ private:
 	 * The definitions are in obstacleRemoval_GT.cpp.
 	 */
 	int solveConflict_yielder( arrayNi &agentsInConflict );
-	int solveConflict_yielder_m( arrayNi &agentsInConflict );
-	void solveConflict_volunteer( arrayNi &agentsInConflict );
-	void solveConflict_volunteer_m( arrayNi &agentsInConflict );
-	void adjustAgentStates( const arrayNi &agentsInConflict, const arrayNf &curRealPayoff, const arrayNf &curVirtualPayoff, int type );
-	///
-	inline float calcTransProb( float u1, float u2 ) const { return 1.f / (1.f + exp(mRationality * (u2 - u1))); }
+	void solveConflict_volunteer( arrayNi &agentsInConflict, float factor );
 };
 
 #endif

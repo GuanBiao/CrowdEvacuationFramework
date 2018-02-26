@@ -71,9 +71,10 @@ struct CalcDensity {
 	const AgentManager *mAgentManager;
 	const arrayNi *mCellStates;
 	const arrayNi *mMovableObstacleMap;
-	int r;
+	float mInterferenceRadius;
 
 	void operator() (const tbb::blocked_range<int> &r_) const {
+		int r = (int)ceil(mInterferenceRadius);
 		for (size_t i = r_.begin(); i != r_.end(); i++) {
 			if ((*mFloorField).mPool_o[(*mFloorField).mActiveObstacles[i]].mIsMovable &&
 				(*mMovableObstacleMap)[convertTo1D((*mFloorField).mPool_o[(*mFloorField).mActiveObstacles[i]].mPos)] != STATE_DONE) {
@@ -85,8 +86,8 @@ struct CalcDensity {
 							continue;
 
 						adjIndex = convertTo1D(obstacle.mPos[0] + x, obstacle.mPos[1] + y);
-						if (obstacle.mPos[0] + x >= 0 && obstacle.mPos[0] + x < (*mFloorField).mDim[0] &&
-							obstacle.mPos[1] + y >= 0 && obstacle.mPos[1] + y < (*mFloorField).mDim[1] &&
+						if (isWithinBoundary(obstacle.mPos[0] + x, obstacle.mPos[1] + y) &&
+							isWithinInterferenceArea(obstacle.mPos, array2i{ obstacle.mPos[0] + x, obstacle.mPos[1] + y }) &&
 							!((*mCellStates)[adjIndex] == TYPE_MOVABLE_OBSTACLE || (*mCellStates)[adjIndex] == TYPE_IMMOVABLE_OBSTACLE)) {
 							if ((*mCellStates)[adjIndex] == TYPE_AGENT &&
 								(*mAgentManager).mPool[(*mAgentManager).mActiveAgents[*(*mAgentManager).isExisting(array2i{ obstacle.mPos[0] + x, obstacle.mPos[1] + y })]].mInChargeOf == STATE_NULL)
@@ -100,8 +101,15 @@ struct CalcDensity {
 		}
 	}
 
+	bool isWithinInterferenceArea(const array2i &obstacle, const array2i &pos) const {
+		int diff_x = abs(obstacle[0] - pos[0]);
+		int diff_y = abs(obstacle[1] - pos[1]);
+		return (std::min(diff_x, diff_y) * (*mFloorField).mLambda + abs(diff_x - diff_y)) <= mInterferenceRadius ? true : false;
+	}
+
 	inline int convertTo1D(int x, int y) const { return y * (*mFloorField).mDim[0] + x; }
 	inline int convertTo1D(const array2i &coord) const { return coord[1] * (*mFloorField).mDim[0] + coord[0]; }
+	inline bool isWithinBoundary(int x, int y) const { return x >= 0 && x < (*mFloorField).mDim[0] && y >= 0 && y < (*mFloorField).mDim[1]; }
 };
 
 void ObstacleRemovalModel::maintainDataAboutSceneChanges_tbb(int type) {
@@ -144,6 +152,6 @@ void ObstacleRemovalModel::calcDensity_tbb() {
 	body.mAgentManager = &mAgentManager;
 	body.mCellStates = &mCellStates;
 	body.mMovableObstacleMap = &mMovableObstacleMap;
-	body.r = (int)ceil(mInteractionRadius_o);
+	body.mInterferenceRadius = mInterferenceRadius;
 	tbb::parallel_for(tbb::blocked_range<int>(0, mFloorField.mActiveObstacles.size()), body);
 }

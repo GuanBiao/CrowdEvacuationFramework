@@ -55,6 +55,7 @@ protected:
 	///
 	inline int convertTo1D( int x, int y ) const { return y * mFloorField.mDim[0] + x; }
 	inline int convertTo1D( const array2i &coord ) const { return coord[1] * mFloorField.mDim[0] + coord[0]; }
+	inline bool isWithinBoundary( int x, int y ) const { return x >= 0 && x < mFloorField.mDim[0] && y >= 0 && y < mFloorField.mDim[1]; }
 };
 
 #endif

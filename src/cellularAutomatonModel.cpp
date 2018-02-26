@@ -44,11 +44,11 @@ void CellularAutomatonModel::update() {
 		for (auto &exit : mFloorField.mExits) {
 			for (const auto &e : exit.mPos) {
 				if (mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos == e) {
-					mCellStates[convertTo1D(mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos)] = TYPE_EMPTY;
-					mAgentManager.deleteAgent(i);
-
 					exit.mNumPassedAgents++;
 					exit.mLeavingTimesteps = mTimesteps;
+
+					mCellStates[convertTo1D(mAgentManager.mPool[mAgentManager.mActiveAgents[i]].mPos)] = TYPE_EMPTY;
+					mAgentManager.deleteAgent(i);
 
 					goto label;
 				}
@@ -82,7 +82,6 @@ void CellularAutomatonModel::update() {
 
 		mAgentManager.mPool[i].mLastPos = mAgentManager.mPool[i].mPos;
 		mAgentManager.mPool[i].mPos = mAgentManager.mPool[i].mTmpPos;
-		mAgentManager.mPool[i].mTravelTimesteps = mTimesteps;
 	}
 
 	/*
@@ -234,8 +233,7 @@ int CellularAutomatonModel::getFreeCell(const arrayNf &cells, const array2i &pos
 				continue;
 
 			adjIndex = curIndex + y * mFloorField.mDim[0] + x;
-			if (pos[0] + x >= 0 && pos[0] + x < mFloorField.mDim[0] &&
-				pos[1] + y >= 0 && pos[1] + y < mFloorField.mDim[1] &&
+			if (isWithinBoundary(pos[0] + x, pos[1] + y) &&
 				mCellStates[adjIndex] == TYPE_EMPTY &&
 				vmax > cells[adjIndex] && cells[adjIndex] > vmin)
 				possibleCoords.push_back(std::pair<int, float>(adjIndex, cells[adjIndex]));
@@ -256,8 +254,7 @@ int CellularAutomatonModel::getFreeCell_p(const arrayNf &cells, const array2i &l
 				continue;
 
 			adjIndex = curIndex + y * mFloorField.mDim[0] + x;
-			if (pos[0] + x >= 0 && pos[0] + x < mFloorField.mDim[0] &&
-				pos[1] + y >= 0 && pos[1] + y < mFloorField.mDim[1] &&
+			if (isWithinBoundary(pos[0] + x, pos[1] + y) &&
 				mCellStates[adjIndex] == TYPE_EMPTY) {
 				if (adjIndex == convertTo1D(lastPos)) // avoid being attracted by its own virtual trace
 					possibleCoords.push_back(std::pair<int, double>(adjIndex, exp((double)cells[adjIndex] - mFloorField.mKD)));

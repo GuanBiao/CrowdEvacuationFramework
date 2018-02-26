@@ -1,11 +1,11 @@
-RANDOM_SEED           -1 -1
-TEXTURE               ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
-MIN_DIST_FROM_EXITS   2
-INTERACTION_RADIUS    10 5
-CRITICAL_DENSITY      0.01
-KA                    5
-INIT_STRATEGY_DENSITY 1 1
-RATIONALITY           10
-HERDING_COEFFICIENT   0.5
-CC                    0.1
-RC                    0.9
+RANDOM_SEED         -1 -1
+TEXTURE             ./data/Fearful_Face_Emoji.png ./data/Persevering_Face_Emoji.png
+MAX_STRENGTH        1
+MIN_DIST_FROM_EXITS 2
+INTERFERENCE_RADIUS 20
+INFLUENCE_RADIUS    6
+EVACUEE_DENSITY     0.01
+KA                  5
+CY                  1.0
+CV                  0.0
+TIMESTEP_TO_REMOVE  -1

@@ -44,6 +44,8 @@
 
 2018/01/04: Fix problems about the model.
 
+2018/02/26: Fix minor bugs.
+
 ***
 
 Required library: OpenGL([FreeGLUT](http://freeglut.sourceforge.net/)), [Boost](http://www.boost.org/), [GLUI](http://glui.sourceforge.net/), [TBB](https://software.intel.com/en-us/intel-tbb), [DevIL](http://openil.sourceforge.net/)
